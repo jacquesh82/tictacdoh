@@ -1,0 +1,28 @@
+{
+  "name": "tictacdoh",
+  "private": true,
+  "type": "module",
+  "description": "Socle technique multijoueur 1-4 joueurs, multi-transport (local, WS, WebRTC, BLE, Nearby)",
+  "workspaces": [
+    "packages/*",
+    "packages/games/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @ttd/web",
+    "build": "npm run build -w @ttd/web",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run test",
+    "relay": "esbuild apps/relay/src/cli.ts --bundle --platform=node --format=esm --packages=external --outfile=apps/relay/dist/cli.mjs && node apps/relay/dist/cli.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

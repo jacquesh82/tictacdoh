@@ -1,0 +1,20 @@
+{
+  "name": "@ttd/transport-nearby",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport Wi-Fi Direct (Android) et MultipeerConnectivity (iOS). Même famille de plateformes uniquement.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*",
+    "@ttd/transport-ble": "*"
+  },
+  "devDependencies": {
+    "@ttd/wire": "*",
+    "@ttd/game-sdk": "*",
+    "@ttd/game-esquive": "*"
+  }
+}

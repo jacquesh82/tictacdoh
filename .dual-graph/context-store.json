@@ -1,0 +1,225 @@
+[
+  {
+    "type": "fact",
+    "content": "CoreBluetooth ne peut pas \u00e9mettre de service data: empreinte dans le nom annonc\u00e9",
+    "tags": [
+      "ble",
+      "ios"
+    ],
+    "files": [
+      "native/capacitor-ble-mesh/ios/Sources/BleMeshPlugin.swift"
+    ],
+    "date": "2026-07-28"
+  },
+  {
+    "id": "mem:1785189070915",
+    "kind": "fact",
+    "content": "iOS\u2194Android hors-ligne impose BLE: ~1-3 ko/s, MTU utile ~180 octets",
+    "tags": [
+      "ble",
+      "contrainte"
+    ],
+    "files": [],
+    "file_path": "",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-27",
+    "created_epoch": 1785103200,
+    "updated_at": "2026-07-27",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785189053070",
+    "kind": "decision",
+    "content": "Socle multijoueur: monorepo TS, PWA+Capacitor, 4 transports abstraits",
+    "tags": [
+      "archi",
+      "reseau"
+    ],
+    "files": [],
+    "file_path": "",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-27",
+    "created_epoch": 1785103200,
+    "updated_at": "2026-07-27",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785189059649",
+    "kind": "decision",
+    "content": "Netcode: s\u00e9quencement d'inputs par l'h\u00f4te, pas de snapshots (budget BLE)",
+    "tags": [
+      "netcode",
+      "ble"
+    ],
+    "files": [],
+    "file_path": "",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-27",
+    "created_epoch": 1785103200,
+    "updated_at": "2026-07-27",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785189422671",
+    "kind": "decision",
+    "content": "Appairage par JoinTicket: QR complet ou code court 6 chiffres",
+    "tags": [
+      "appairage",
+      "lobby"
+    ],
+    "files": [],
+    "file_path": "",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-27",
+    "created_epoch": 1785103200,
+    "updated_at": "2026-07-27",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785227267890",
+    "kind": "decision",
+    "content": "Identifiant de pair = place attribu\u00e9e par le relay, jamais le nom",
+    "tags": [
+      "transport",
+      "identite"
+    ],
+    "files": [
+      "packages/transport-ws/src/index.ts",
+      "packages/transport-webrtc/src/index.ts"
+    ],
+    "file_path": "packages/transport-ws/src/index.ts",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785220985108",
+    "kind": "decision",
+    "content": "Enveloppe de routage porte le si\u00e8ge d'origine; hub publie les RTT mesur\u00e9s",
+    "tags": [
+      "netcode",
+      "routage"
+    ],
+    "files": [
+      "packages/core/src/session.ts",
+      "packages/core/src/netcode.ts"
+    ],
+    "file_path": "packages/core/src/session.ts",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785190728917",
+    "kind": "decision",
+    "content": "Autorit\u00e9 = compteur de rotations sur ordre d\u00e9riv\u00e9 du roster, pas un identifiant",
+    "tags": [
+      "netcode",
+      "session"
+    ],
+    "files": [
+      "packages/core/src/session.ts"
+    ],
+    "file_path": "packages/core/src/session.ts",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785190733465",
+    "kind": "fact",
+    "content": "pnpm/corepack absents: le monorepo utilise npm workspaces",
+    "tags": [
+      "outillage"
+    ],
+    "files": [],
+    "file_path": "",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785224014566",
+    "kind": "decision",
+    "content": "Simulation pilot\u00e9e par setInterval, rendu par rAF: onglet cach\u00e9 = 0 frame",
+    "tags": [
+      "web",
+      "boucle"
+    ],
+    "files": [
+      "apps/web/src/play.ts"
+    ],
+    "file_path": "apps/web/src/play.ts",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  },
+  {
+    "id": "mem:1785262337350",
+    "kind": "decision",
+    "content": "Identit\u00e9 de session d\u00e9clar\u00e9e par trame Hello, jamais d\u00e9duite du transport",
+    "tags": [
+      "session",
+      "identite"
+    ],
+    "files": [
+      "packages/core/src/session.ts"
+    ],
+    "file_path": "packages/core/src/session.ts",
+    "symbol_id": "",
+    "symbol_hash": "",
+    "created_at": "2026-07-28",
+    "created_epoch": 1785189600,
+    "updated_at": "2026-07-28",
+    "stale": false,
+    "stale_reason": "",
+    "observed_queries": [],
+    "evidence": {}
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.base.json",
+  // Les paquets seuls. Les applications ont leur propre tsconfig, parce
+  // qu'elles ont besoin des types du DOM que le socle, lui, n'a pas le droit
+  // d'utiliser — c'est ce qui garantit qu'il tourne aussi bien en coquille
+  // native qu'en navigateur.
+  "include": ["packages/**/src/**/*.ts", "packages/**/test/**/*.ts", "*.config.ts"],
+  "exclude": ["**/node_modules", "**/dist"]
+}

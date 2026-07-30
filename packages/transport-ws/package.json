@@ -1,0 +1,20 @@
+{
+  "name": "@ttd/transport-ws",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport WebSocket via le relay : Internet et GSM. Le seul chemin disponible partout.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*"
+  },
+  "devDependencies": {
+    "@ttd/relay": "*",
+    "@ttd/wire": "*",
+    "@ttd/game-sdk": "*",
+    "@ttd/game-esquive": "*"
+  }
+}

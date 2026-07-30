@@ -1,0 +1,31 @@
+{
+  "name": "@ttd/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Application web : lobby, partie et page de diagnostic réseau.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@ttd/core": "*",
+    "@ttd/game-esquive": "*",
+    "@ttd/game-sdk": "*",
+    "@ttd/games": "*",
+    "@ttd/join": "*",
+    "@ttd/netsim": "*",
+    "@ttd/transport-ble": "*",
+    "@ttd/transport-local": "*",
+    "@ttd/transport-nearby": "*",
+    "@ttd/transport-select": "*",
+    "@ttd/wire": "*",
+    "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "@types/qrcode": "^1.5.5",
+    "vite": "^5.4.11"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@ttd/transport-select",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Choix du moyen de communication le plus fiable, par sondage des correspondants à proximité.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*",
+    "@ttd/game-sdk": "*"
+  },
+  "devDependencies": {
+    "@ttd/game-esquive": "*",
+    "@ttd/transport-ble": "*",
+    "@ttd/transport-local": "*",
+    "@ttd/transport-nearby": "*",
+    "@ttd/transport-webrtc": "*",
+    "@ttd/transport-ws": "*"
+  }
+}

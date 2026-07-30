@@ -1,0 +1,547 @@
+:root {
+  --bg: #0e1116;
+  --panel: #171c24;
+  --panel-2: #1f2632;
+  --line: #2a3342;
+  --ink: #e6edf6;
+  --muted: #93a1b5;
+  --accent: #5ac8fa;
+  --ok: #3ddc97;
+  --warn: #ffcc55;
+  --bad: #ff6b6b;
+  --seat-0: #5ac8fa;
+  --seat-1: #ffcc55;
+  --seat-2: #3ddc97;
+  --seat-3: #ff8fd0;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --panel-2: #eef2f8;
+    --line: #d8e0ec;
+    --ink: #16202e;
+    --muted: #5a6a80;
+    color-scheme: light;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.brand {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.topbar nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.topbar nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.topbar nav a:hover {
+  color: var(--ink);
+}
+
+main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 4rem;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.25rem;
+}
+
+h2 {
+  font-size: 1.05rem;
+  margin: 0 0 0.75rem;
+}
+
+.lede {
+  color: var(--muted);
+  margin: 0 0 1.5rem;
+}
+
+.grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+button {
+  font: inherit;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #06121c;
+  font-weight: 600;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+input {
+  font: inherit;
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.code {
+  font: 700 2rem/1.1 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.35em;
+  text-align: center;
+  padding: 0.75rem 0;
+}
+
+.qr {
+  display: block;
+  width: 100%;
+  max-width: 15rem;
+  margin: 0 auto;
+  image-rendering: pixelated;
+  border-radius: 0.5rem;
+  background: #fff;
+  padding: 0.5rem;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.seats {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.seat {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  font-size: 0.875rem;
+}
+
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  border-radius: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  touch-action: none;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.scroll-x {
+  overflow-x: auto;
+}
+
+.pill {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pill.ok {
+  background: color-mix(in srgb, var(--ok) 20%, transparent);
+  color: var(--ok);
+}
+
+.pill.no {
+  background: color-mix(in srgb, var(--bad) 20%, transparent);
+  color: var(--bad);
+}
+
+.pill.warn {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
+}
+
+.meter {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+
+.stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.3rem 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat b {
+  font-weight: 600;
+}
+
+.error {
+  color: var(--bad);
+  font-size: 0.875rem;
+  min-height: 1.25rem;
+}
+
+.spark {
+  width: 100%;
+  height: 3rem;
+  display: block;
+}
+
+/* ---------------------------------------------------------------------------
+   Mode plein écran de jeu.
+
+   Déclenché par `body.playing`. La barre de navigation disparaît, le terrain
+   occupe tout l'écran et les informations passent en surimpression. Sur un
+   téléphone, la mise en page en deux colonnes réduisait le terrain à un timbre-
+   poste : le jeu se joue au doigt, il lui faut la surface entière.
+   --------------------------------------------------------------------------- */
+
+body.playing .topbar {
+  display: none;
+}
+
+body.playing main {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+/*
+   Scène de jeu.
+ 
+   `--hud-h` et `--foot-h` réservent la place des surimpressions : sans elles,
+   la barre d'informations recouvrait le haut du terrain — c'est-à-dire l'endroit
+   exact où apparaissent les obstacles. On ne peut pas esquiver ce qu'on ne voit
+   arriver qu'à mi-course.
+*/
+.stage {
+  --hud-h: 6rem;
+  --foot-h: 2.5rem;
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  overflow: hidden;
+  /* La scène capte le doigt sur toute sa surface, pas seulement sur le
+     terrain : en paysage celui-ci n'occupe qu'un quart de la largeur, et les
+     zones de commande devenaient minuscules. */
+  touch-action: none;
+}
+
+/*
+   Terrain carré, centré, aussi grand que l'écran le permet.
+
+   `dvh` et non `vh` : sur mobile, `vh` ignore la barre d'adresse rétractable
+   et le bas du terrain finit sous le menu système.
+
+   Le carré est conservé volontairement. L'étirer au format de l'écran donnerait
+   plus d'espace pour esquiver sur un téléphone allongé que sur une tablette —
+   un avantage matériel dans une partie multijoueur.
+*/
+/*
+   La surface épouse le rapport du terrain (--field-aspect, posé par le jeu).
+   Elle prend la plus grande taille qui tienne à l'écran sans déformer : le
+   terrain garde la même forme partout, seule son échelle change.
+*/
+.stage canvas {
+  --field-aspect: 0.5556;
+  --usable-h: calc(100dvh - var(--hud-h) - var(--foot-h));
+  width: min(100vw, calc(var(--usable-h) * var(--field-aspect)));
+  height: min(var(--usable-h), calc(100vw / var(--field-aspect)));
+  border: 0;
+  border-radius: 0;
+  /*
+     Le terrain se détache du fond : sur un écran allongé, il occupe moins que
+     l'écran entier, et sans contraste on ne sait plus où finit l'aire de jeu.
+  */
+  background: var(--panel);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+/*
+   Informations en surimpression, dans les marges laissées par le terrain.
+
+   Les éléments passent à la ligne : sur un écran de téléphone, une rangée
+   unique repoussait les boutons d'action hors de l'écran — ils devenaient
+   simplement inatteignables, ce qui ne se voit qu'en essayant sur l'appareil.
+*/
+.hud {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: calc(env(safe-area-inset-top, 0px) + 0.5rem) 0.75rem 0.5rem;
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 92%, transparent), transparent);
+  font-size: 0.8125rem;
+  pointer-events: none;
+}
+
+/*
+   Le séparateur ne pousse plus rien hors champ quand ça passe à la ligne :
+   sur écran étroit il ne prend aucune place, les actions restent avec le
+   reste.
+*/
+@media (max-width: 34rem) {
+  .hud .spacer {
+    flex: 0 0 0;
+  }
+
+  .hud .chip {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+  }
+}
+
+.hud > * {
+  pointer-events: auto;
+}
+
+.hud .spacer {
+  flex: 1;
+}
+
+.hud b {
+  font-variant-numeric: tabular-nums;
+}
+
+.hud .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.hud button {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.8125rem;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+}
+
+/* Bandeau bas : commandes et résultat. */
+.footbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.5rem 0.75rem calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  text-align: center;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  background: linear-gradient(to top, color-mix(in srgb, var(--bg) 92%, transparent), transparent);
+  pointer-events: none;
+}
+
+/* Résultats de manche : liste ordonnée, lisible d'un coup d'œil. */
+.results {
+  margin: 0.75rem 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: rang;
+}
+
+.results li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.results li::before {
+  counter-increment: rang;
+  content: counter(rang);
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--panel-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex: none;
+}
+
+.results li:first-child::before {
+  background: var(--warn);
+  color: #241c00;
+}
+
+.results .pts {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+
+/* Panneau d'invitation, ouvert à la demande. */
+.sheet[hidden] {
+  display: none;
+}
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: color-mix(in srgb, #000 60%, transparent);
+}
+
+.sheet > .card {
+  width: min(22rem, 100%);
+  max-height: 90dvh;
+  overflow-y: auto;
+}
+
+/* Sur écran large, le terrain n'a pas besoin de tout prendre. */
+/* Sur écran large, on laisse respirer autour du terrain. */
+@media (min-width: 48rem) and (min-height: 30rem) {
+  .stage canvas {
+    border-radius: 0.75rem;
+  }
+}
+
+/*
+   Écran bas — un téléphone tenu en paysage.
+
+   Deux corrections. La barre d'informations passe dans la marge latérale, large
+   puisque le terrain reste étroit : elle cesse ainsi de manger la hauteur, qui
+   est la ressource rare ici. Et le bandeau d'aide disparaît, n'étant utile
+   qu'au premier coup d'œil.
+*/
+@media (orientation: landscape) and (max-height: 34rem) {
+  .stage {
+    --hud-h: 0.5rem;
+    --foot-h: 0.5rem;
+  }
+
+  .hud {
+    flex-direction: column;
+    align-items: flex-start;
+    width: auto;
+    right: auto;
+    max-width: 40vw;
+    background: none;
+    padding: calc(env(safe-area-inset-top, 0px) + 0.4rem) 0.5rem 0.4rem
+      calc(env(safe-area-inset-left, 0px) + 0.5rem);
+  }
+
+  .hud .spacer {
+    display: none;
+  }
+
+  .footbar {
+    display: none;
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@ttd/wire",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Codec binaire compact. Le budget BLE (~180 o de MTU utile) est la contrainte de conception.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

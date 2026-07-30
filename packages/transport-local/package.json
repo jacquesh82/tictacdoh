@@ -1,0 +1,14 @@
+{
+  "name": "@ttd/transport-local",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport local : 1 à 4 joueurs sur le même appareil, sans réseau.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*"
+  }
+}

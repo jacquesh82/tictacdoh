@@ -1,0 +1,19 @@
+{
+  "name": "@ttd/netsim",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport émulé : latence, gigue, perte, MTU, débit plafonné. Permet de jouer sous contrainte BLE sans appareil.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*"
+  },
+  "devDependencies": {
+    "@ttd/game-sdk": "*",
+    "@ttd/game-esquive": "*",
+    "@ttd/wire": "*"
+  }
+}

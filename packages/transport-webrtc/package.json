@@ -1,0 +1,17 @@
+{
+  "name": "@ttd/transport-webrtc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport pair à pair : canaux de données WebRTC, mis en relation par le relay.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*"
+  },
+  "devDependencies": {
+    "@ttd/wire": "*"
+  }
+}

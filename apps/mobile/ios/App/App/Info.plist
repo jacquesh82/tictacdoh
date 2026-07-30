@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+        <string>TicTacDoh</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UIRequiredDeviceCapabilities</key>
+	<array>
+		<string>armv7</string>
+	</array>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<true/>
+
+	<!--
+		Autorisations. Chacune est bloquante à sa façon :
+
+		- Bluetooth : CoreBluetooth fait planter l'application au premier accès
+		  si la description manque. Ce n'est pas un refus, c'est un arrêt.
+		- Réseau local : depuis iOS 14, joindre une adresse privée demande le
+		  consentement de l'utilisateur. Sans cette clé, le relay en 192.168.x.x
+		  et les candidats WebRTC locaux sont injoignables — c'est-à-dire tout
+		  le jeu en Wi-Fi, silencieusement.
+		- Caméra : lecture du QR d'invitation.
+	-->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Pour relier les joueurs à proximité sans réseau, en Bluetooth.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Pour héberger une partie et rester visible des joueurs à proximité.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Pour trouver et rejoindre les parties ouvertes sur votre réseau Wi-Fi.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_tictacdoh._tcp</string>
+		<string>_tictacdoh._udp</string>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Pour scanner le QR code d’invitation d’une partie.</string>
+</dict>
+</plist>

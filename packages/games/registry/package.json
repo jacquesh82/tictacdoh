@@ -1,0 +1,19 @@
+{
+  "name": "@ttd/games",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Catalogue des mini-jeux. Seul endroit qui connaît la liste ; l'application n'en importe aucun directement.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*",
+    "@ttd/game-esquive": "*",
+    "@ttd/game-sdk": "*"
+  },
+  "devDependencies": {
+    "@ttd/netsim": "*"
+  }
+}

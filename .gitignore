@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+.DS_Store
+
+# Coquilles natives générées par Capacitor.
+# Les chemins pointaient sur apps/ios et apps/android, qui n'existent pas :
+# les deux plateformes vivent sous apps/mobile. Rien n'était donc ignoré.
+apps/mobile/ios/App/Pods/
+apps/mobile/ios/App/App/public/
+apps/mobile/ios/App/output/
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/android/app/src/main/assets/public/
+apps/mobile/android/local.properties
+
+# Signature : rien de tout ceci ne doit atteindre le dépôt.
+*.p12
+*.mobileprovision
+*.cer

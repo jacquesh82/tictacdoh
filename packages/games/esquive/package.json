@@ -1,0 +1,20 @@
+{
+  "name": "@ttd/game-esquive",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mini-jeu de validation : esquive temps réel 1-4 joueurs, dernier survivant.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./plugin": "./src/plugin.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*",
+    "@ttd/game-sdk": "*",
+    "@ttd/wire": "*"
+  },
+  "devDependencies": {
+    "@ttd/netsim": "*"
+  }
+}

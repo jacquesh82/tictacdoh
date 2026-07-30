@@ -1,0 +1,192 @@
+# Construction iOS.
+#
+# Existe parce qu'il n'y a pas de Mac sur la machine de développement : Xcode
+# est indispensable pour compiler du Swift et signer une application iOS, et
+# aucune émulation ne remplace ça. Un runner macOS de GitHub est donc le seul
+# moyen de savoir si le plugin BLE compile réellement.
+#
+# Deux étages, volontairement séparés :
+#
+#   1. « compile » tourne toujours, sans signature. Il répond à la seule
+#      question qui n'a pas besoin de compte Apple : est-ce que le code Swift
+#      est correct ? C'est ce qui manquait jusqu'ici — le plugin était écrit
+#      mais jamais passé par un compilateur.
+#
+#   2. « ipa » ne tourne que si les secrets de signature existent. Sans compte
+#      Apple Developer, aucune astuce ne permet d'installer sur un iPhone :
+#      c'est une contrainte de la plateforme, pas un manque d'outillage.
+
+name: iOS
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  compile:
+    name: Compilation Swift (sans signature)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Vérifications du socle
+        run: npm run check
+
+      - name: Construction de l’application web
+        run: npm run build -w @ttd/web
+
+      - name: Synchronisation Capacitor
+        working-directory: apps/mobile
+        run: npx cap sync ios
+
+      - name: Pods
+        working-directory: apps/mobile/ios/App
+        run: pod install --repo-update
+
+      # Sans signature : la question posée ici est « est-ce que ça compile »,
+      # pas « est-ce installable ». Séparer les deux permet d'avoir une réponse
+      # utile même sans compte Apple.
+      - name: Compilation
+        working-directory: apps/mobile/ios/App
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build 2>&1 | xcpretty || xcodebuild \
+              -workspace App.xcworkspace -scheme App -configuration Debug \
+              -sdk iphoneos -destination 'generic/platform=iOS' \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+
+  ipa:
+    name: Paquet signé (.ipa)
+    runs-on: macos-14
+    needs: compile
+    # Sans certificat, l'étage entier est sauté plutôt que d'échouer : un
+    # échec rouge à chaque exécution finirait par être ignoré, et masquerait
+    # les vraies régressions de l'étage de compilation.
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Vérification des secrets de signature
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
+        run: |
+          if [ -z "$CERT" ]; then
+            echo "::error::Signature impossible : les secrets Apple ne sont pas configurés."
+            echo "Voir docs/ios-signature.md pour la liste exacte et comment les produire."
+            exit 1
+          fi
+
+      - name: Dépendances
+        run: npm ci
+
+      - name: Construction de l’application web
+        run: npm run build -w @ttd/web
+
+      - name: Synchronisation Capacitor
+        working-directory: apps/mobile
+        run: npx cap sync ios
+
+      - name: Pods
+        working-directory: apps/mobile/ios/App
+        run: pod install --repo-update
+
+      # Trousseau éphémère : importer le certificat dans le trousseau de
+      # connexion du runner le laisserait accessible aux étapes suivantes.
+      - name: Trousseau de signature
+        env:
+          CERT_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN=$RUNNER_TEMP/signature.keychain-db
+          KEYCHAIN_PASSWORD=$(uuidgen)
+
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          echo "$PROFILE" | base64 --decode > "$RUNNER_TEMP/profil.mobileprovision"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychain -d user -s "$KEYCHAIN"
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          UUID=$(security cms -D -i "$RUNNER_TEMP/profil.mobileprovision" \
+            | plutil -extract UUID raw -o - -)
+          cp "$RUNNER_TEMP/profil.mobileprovision" \
+            ~/Library/MobileDevice/Provisioning\ Profiles/"$UUID".mobileprovision
+          echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
+
+      - name: Archive
+        working-directory: apps/mobile/ios/App
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_UUID" \
+            CODE_SIGN_STYLE=Manual \
+            archive
+
+      - name: Export .ipa
+        working-directory: apps/mobile/ios/App
+        env:
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/export.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>method</key><string>development</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>manual</string>
+            <key>provisioningProfiles</key><dict>
+              <key>app.tictacdoh</key><string>$PROFILE_UUID</string>
+            </dict>
+          </dict></plist>
+          PLIST
+
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/export.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tictacdoh-ios
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error

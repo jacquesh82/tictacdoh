@@ -1,0 +1,20 @@
+{
+  "name": "@ttd/transport-ble",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transport Bluetooth Low Energy : le seul chemin hors-ligne entre iOS et Android.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/core": "*",
+    "@ttd/join": "*",
+    "@ttd/wire": "*"
+  },
+  "devDependencies": {
+    "@ttd/game-sdk": "*",
+    "@ttd/game-esquive": "*"
+  }
+}

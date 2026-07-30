@@ -1,0 +1,14 @@
+{
+  "name": "@ttd/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Contrats de transport, couche Channel (fragmentation, budget) et Session (pairs, hub, hôte).",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/wire": "*"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@ttd/relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Serveur de rendez-vous : salles, résolution du code court, relais de trames.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "node dist/cli.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.13"
+  }
+}
