@@ -1,0 +1,16 @@
+{
+  "name": "@ttd/capacitor-ble-mesh",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Plugin Capacitor : maillage Bluetooth basse énergie, seul chemin hors-ligne commun à iOS et Android.",
+  "main": "index.js",
+  "files": [
+    "ios/",
+    "TtdCapacitorBleMesh.podspec"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

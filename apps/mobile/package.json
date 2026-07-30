@@ -13,7 +13,9 @@
     "@capacitor/android": "^6.2.0",
     "@capacitor/core": "^6.2.0",
     "@capacitor/device": "^6.0.3",
-    "@capacitor/ios": "^6.2.0"
+    "@capacitor/ios": "^6.2.0",
+    "@ttd/capacitor-ble-mesh": "file:../../native/capacitor-ble-mesh",
+    "@ttd/capacitor-nearby": "file:../../native/capacitor-nearby"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0"

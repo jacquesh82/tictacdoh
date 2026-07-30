@@ -1,0 +1,16 @@
+{
+  "name": "@ttd/capacitor-nearby",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Plugin Capacitor : MultipeerConnectivity sur iOS, pendant Apple de Nearby Connections.",
+  "main": "index.js",
+  "files": [
+    "ios/",
+    "TtdCapacitorNearby.podspec"
+  ],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

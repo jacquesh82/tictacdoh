@@ -1,7 +1,7 @@
 require 'json'
 
 Pod::Spec.new do |s|
-  s.name = 'TtdBleMesh'
+  s.name = 'TtdCapacitorBleMesh'
   s.version = '0.0.1'
   s.summary = 'Transport Bluetooth Low Energy pour TicTacDoh.'
   s.description = <<~DESC

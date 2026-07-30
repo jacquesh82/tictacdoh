@@ -1,5 +1,5 @@
 Pod::Spec.new do |s|
-  s.name = 'TtdNearby'
+  s.name = 'TtdCapacitorNearby'
   s.version = '0.0.1'
   s.summary = 'Transport « à proximité » pour TicTacDoh, sur MultipeerConnectivity.'
   s.description = <<~DESC
