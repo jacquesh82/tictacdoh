@@ -1,5 +1,5 @@
 import { offers } from '@ttd/games'
-import { displayName } from './device.js'
+import { displayName, platformLabel, tagged, untag } from './device.js'
 import { settingNumber } from './settings.js'
 import { LOCAL_CAPS } from '@ttd/transport-local'
 import { type RoomSummary, WsTransport } from '@ttd/transport-ws'
@@ -321,7 +321,11 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
         return `<div class="row" style="justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--line)">
           <div>
             <b>${room.roomName}</b>
-            <div class="muted">${room.hostName} · ${room.playerCount}/${room.maxPlayers} joueurs</div>
+            <div class="muted">${untag(room.hostName).name}${
+              untag(room.hostName).platform === 'inconnu'
+                ? ''
+                : ` (${platformLabel(untag(room.hostName).platform)})`
+            } · ${room.playerCount}/${room.maxPlayers} joueurs</div>
           </div>
           <button data-code="${room.code}" ${full ? 'disabled' : ''} class="primary">
             ${full ? 'Complète' : 'Rejoindre'}
@@ -340,7 +344,7 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
 
   const search = async () => {
     roomsEl.innerHTML = `<p class="muted">Recherche…</p>`
-    const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
+    const transport = new WsTransport({ url: relayUrl(), selfName: tagged(displayName(playerName())) })
     try {
       showRooms(await transport.listRooms(settingNumber('roomListTimeoutMs')))
     } catch (error) {

@@ -2,7 +2,7 @@ import { type DistanceEstimate, type TransportKind, estimateDistance, smoothRssi
 import { WsTransport } from '@ttd/transport-ws'
 import { relayUrl, relayUrlIsManual, hintDefaults } from './app-config.js'
 import { playerName } from './home.js'
-import { displayName } from './device.js'
+import { type PeerPlatform, displayName, tagged, untag } from './device.js'
 import { BleMesh, Nearby, isNative } from './native.js'
 import { setting, settingNumber } from './settings.js'
 
@@ -39,6 +39,8 @@ import { setting, settingNumber } from './settings.js'
 export interface NearbyPeer {
   readonly id: string
   readonly name: string
+  /** Plateforme annoncée. Décide de ce qui est possible avec ce pair. */
+  readonly platform: PeerPlatform
   readonly via: TransportKind
   /** Puissance reçue en dBm, quand le transport la connaît. */
   readonly rssi?: number
@@ -153,16 +155,18 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
     moyens.push('réseau local')
     const pollLan = async () => {
       if (stopped) return
-      const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
+      const transport = new WsTransport({ url: relayUrl(), selfName: tagged(displayName(playerName())) })
       try {
         const salles = await transport.listRooms(settingNumber('roomListTimeoutMs'))
         etat('ws', true, `relay joignable · ${salles.length} salle(s) ouverte(s)`)
         for (const room of salles) {
+          const { platform } = untag(room.hostName)
           notePeer({
             id: `ws:${room.code}`,
-            name: room.roomName || room.hostName,
+            name: room.roomName || untag(room.hostName).name,
+            platform,
             via: 'ws',
-            detail: `salle ouverte · ${room.playerCount}/${room.maxPlayers} joueurs · hôte ${room.hostName}`,
+            detail: `salle ouverte · ${room.playerCount}/${room.maxPlayers} joueurs · hôte ${untag(room.hostName).name}`,
           })
         }
       } catch (error) {
@@ -187,9 +191,11 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
           return
         }
         const listener = await BleMesh.addListener('discovered', (event) => {
+          const { platform, name } = untag(event.name || '')
           notePeer({
             id: `ble:${event.deviceId}`,
-            name: event.name || 'appareil sans nom',
+            name: name || 'appareil sans nom',
+            platform,
             via: 'ble',
             ...(event.rssi === undefined ? {} : { rssi: event.rssi }),
             detail: 'Bluetooth, hors réseau',
@@ -211,7 +217,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
           await BleMesh.startAdvertising({
             serviceUuid,
             fingerprintHex: setting('diagnosticFingerprint'),
-            localName: displayName(playerName()),
+            localName: tagged(displayName(playerName())),
           })
           cleanups.push(() => void BleMesh.stopAdvertising())
           etat('ble', true, `à l’écoute et visible sous « ${displayName(playerName())} »`)
@@ -251,9 +257,11 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         const nom = displayName(playerName())
 
         const trouve = await Nearby.addListener('endpointFound', (event) => {
+          const { platform, name } = untag(event.endpointName || '')
           notePeer({
             id: `nearby:${event.endpointId}`,
-            name: event.endpointName || 'appareil sans nom',
+            name: name || 'appareil sans nom',
+            platform,
             via: 'nearby',
             // Nearby ne rapporte aucune puissance de signal : pas de distance
             // possible, et le dire vaut mieux que de laisser un vide.
@@ -272,7 +280,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         // deux appareils qui ne feraient que chercher ne se verraient jamais.
         await Nearby.startDiscovery({ serviceId })
         cleanups.push(() => void Nearby.stopDiscovery())
-        await Nearby.startAdvertising({ serviceId, endpointName: nom })
+        await Nearby.startAdvertising({ serviceId, endpointName: tagged(nom) })
         cleanups.push(() => void Nearby.stopAdvertising())
 
         etat('nearby', true, `à l’écoute et visible sous « ${nom} »`)

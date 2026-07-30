@@ -5,7 +5,7 @@ import { seedFrom } from '@ttd/core'
 import { WEB_ORIGIN, hintDefaults } from './app-config.js'
 import { applyFieldAspect, attachLocalInputs, drawGame, seatColor } from './game-view.js'
 import { playerName } from './home.js'
-import { displayName } from './device.js'
+import { displayName, tagged } from './device.js'
 import { RELAY_URL, hostRoom, joinRoom, type NetRoom } from './net.js'
 import { renderTicket } from './qr.js'
 import { NfcPairing } from '@ttd/nfc'
@@ -453,7 +453,7 @@ export function renderNet(
 
   const boot = async () => {
     if (mode === 'host') {
-      const room: NetRoom = await hostRoom(RELAY_URL(), displayName(playerName()), roomName)
+      const room: NetRoom = await hostRoom(RELAY_URL(), tagged(displayName(playerName())), roomName)
       disposeRoom = room.dispose
       closeRoom = room.closeRoom
       session = room.session

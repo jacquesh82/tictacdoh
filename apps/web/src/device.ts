@@ -201,3 +201,57 @@ export function displayName(alias?: string): string {
   const d = deviceInfo()
   return d.runtime === 'natif' ? `Appareil ${d.platform}` : `${d.browser} sur ${d.os}`
 }
+
+/**
+ * Plateforme d'un appareil, telle qu'on peut l'apprendre à distance.
+ *
+ * Sert à répondre à une question pratique : « cet appareil que je vois, est-ce
+ * l'iPhone d'en face ou un autre Android ? » Elle décide aussi de ce qui est
+ * possible — deux Android peuvent passer en Wi-Fi Direct, un iPhone et un
+ * Android n'ont que le Bluetooth.
+ */
+export type PeerPlatform = 'android' | 'ios' | 'web' | 'inconnu'
+
+const TAGS: Record<string, PeerPlatform> = { a: 'android', i: 'ios', w: 'web' }
+const CODES: Record<string, string> = { android: 'a', ios: 'i', web: 'w' }
+
+/**
+ * Sépare la plateforme du nom.
+ *
+ * Le marqueur voyage dans le nom annoncé parce que c'est le **seul champ
+ * commun aux deux plateformes** : CoreBluetooth ne sait pas émettre de service
+ * data, et une annonce BLE ne laisse de toute façon pas la place d'ajouter un
+ * champ. Deux octets suffisent, ce qui compte quand il en reste vingt-deux.
+ */
+export function untag(raw: string): { platform: PeerPlatform; name: string } {
+  const sep = raw.indexOf('~')
+  // Marqueur d'un caractère suivi du séparateur, et rien d'autre : un nom
+  // contenant « ~ » plus loin ne doit pas être pris pour un marqueur.
+  if (sep === 1) {
+    const platform = TAGS[raw[0]!.toLowerCase()]
+    if (platform) return { platform, name: raw.slice(2) }
+  }
+  return { platform: 'inconnu', name: raw }
+}
+
+/** Ajoute le marqueur de plateforme au nom annoncé. */
+export function tagged(name: string): string {
+  const d = deviceInfo()
+  const code =
+    CODES[d.runtime === 'natif' ? d.platform : 'web'] ?? (d.runtime === 'natif' ? 'a' : 'w')
+  return `${code}~${name}`
+}
+
+/** Libellé lisible, avec l'icône que les gens reconnaissent. */
+export function platformLabel(platform: PeerPlatform): string {
+  switch (platform) {
+    case 'android':
+      return 'Android'
+    case 'ios':
+      return 'iOS'
+    case 'web':
+      return 'navigateur'
+    default:
+      return 'inconnu'
+  }
+}

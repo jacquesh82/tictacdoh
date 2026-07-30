@@ -20,6 +20,7 @@ import {
   ALL_TRANSPORTS,
   deviceInfo,
   enabledTransports,
+  platformLabel,
   setTransportEnabled,
 } from './device.js'
 import { type NearbyPeer, type ScanHandle, startNearbyScan } from './nearby.js'
@@ -71,10 +72,16 @@ function peerRow(peer: NearbyPeer): string {
     ? `<b>${d.label}</b> <span class="muted">≈ ${d.meters.toFixed(1)} m (${d.min.toFixed(1)}–${d.max.toFixed(1)}, confiance ${d.confidence})</span>`
     : `<span class="muted">distance inconnue par ce moyen</span>`
   const signal = peer.rssi !== undefined ? ` · ${Math.round(peer.rssi)} dBm` : ''
+  // Le type d'appareil décide de ce qui est possible : deux Android peuvent
+  // passer en Wi-Fi Direct, un iPhone et un Android n'ont que le Bluetooth.
+  const plateforme =
+    peer.platform === 'inconnu'
+      ? ''
+      : ` <span class="pill ok">${platformLabel(peer.platform)}</span>`
   return `<li class="seat" style="align-items:flex-start">
     <span class="dot" style="background:var(--accent)"></span>
     <span>
-      <b>${peer.name}</b> <span class="pill warn">${peer.via}${signal}</span>
+      <b>${peer.name}</b>${plateforme} <span class="pill warn">${peer.via}${signal}</span>
       <div class="muted">${peer.detail ?? ''}</div>
       <div>${distance}</div>
     </span>
