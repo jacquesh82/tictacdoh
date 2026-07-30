@@ -121,28 +121,38 @@ jobs:
           CERT: ${{ secrets.IOS_CERTIFICATE_P12 }}
         run: |
           if [ -z "$CERT" ]; then
-            echo "::error::Signature impossible : les secrets Apple ne sont pas configurés."
-            echo "Voir docs/ios-signature.md pour la liste exacte et comment les produire."
-            exit 1
+            # Avertissement et non erreur : sans compte Apple payant, cet étage
+            # ne peut pas aboutir, et le faire échouer peignait en rouge des
+            # exécutions dont la compilation avait parfaitement réussi. Un
+            # rouge permanent finit par être ignoré, et masque les vraies
+            # régressions.
+            echo "::warning::Signature ignorée : les secrets Apple ne sont pas configurés."
+            echo "Voir docs/ios-signature.md. Le .ipa non signé reste disponible en artefact."
+            echo "SKIP=1" >> "$GITHUB_ENV"
           fi
 
       - name: Dépendances
+        if: env.SKIP != '1'
         run: npm ci
 
       - name: Construction de l’application web
+        if: env.SKIP != '1'
         run: npm run build -w @ttd/web
 
       - name: Synchronisation Capacitor
+        if: env.SKIP != '1'
         working-directory: apps/mobile
         run: npx cap sync ios
 
       - name: Pods
+        if: env.SKIP != '1'
         working-directory: apps/mobile/ios/App
         run: pod install --repo-update
 
       # Trousseau éphémère : importer le certificat dans le trousseau de
       # connexion du runner le laisserait accessible aux étapes suivantes.
       - name: Trousseau de signature
+        if: env.SKIP != '1'
         env:
           CERT_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
           CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
@@ -171,6 +181,7 @@ jobs:
           echo "PROFILE_UUID=$UUID" >> "$GITHUB_ENV"
 
       - name: Archive
+        if: env.SKIP != '1'
         working-directory: apps/mobile/ios/App
         env:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
@@ -188,6 +199,7 @@ jobs:
             archive
 
       - name: Export .ipa
+        if: env.SKIP != '1'
         working-directory: apps/mobile/ios/App
         env:
           TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
@@ -212,6 +224,7 @@ jobs:
             -exportPath "$RUNNER_TEMP/export"
 
       - uses: actions/upload-artifact@v4
+        if: env.SKIP != '1'
         with:
           name: tictacdoh-ios
           path: ${{ runner.temp }}/export/*.ipa
