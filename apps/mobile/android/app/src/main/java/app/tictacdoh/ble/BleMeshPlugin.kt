@@ -26,6 +26,7 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import java.util.UUID
 
 /**
@@ -36,9 +37,23 @@ import java.util.UUID
  * en centraux. Deux caractéristiques suffisent — une pour recevoir (écriture
  * du central), une pour émettre (notification vers le central).
  *
- * ⚠️ NON COMPILÉ NI TESTÉ. Aucun SDK Android ni appareil n'était disponible.
- * Le contrat que ce fichier doit honorer est en revanche figé et vérifié par
- * les tests de `packages/transport-ble`.
+ * ## Permissions
+ *
+ * Déclarer les permissions ne suffit pas : depuis Android 12, `BLUETOOTH_SCAN`,
+ * `BLUETOOTH_CONNECT` et `BLUETOOTH_ADVERTISE` doivent être **demandées à
+ * l'exécution**. Sans cela, la simple lecture de `adapter.isEnabled` lève une
+ * `SecurityException` qui tue le processus — constaté sur appareil : ouvrir la
+ * recherche faisait disparaître l'application, sans message.
+ *
+ * Chaque point d'entrée qui touche la pile Bluetooth commence donc par
+ * vérifier les permissions, et tout est enveloppé contre `SecurityException` :
+ * un refus doit rendre un résultat négatif, jamais faire planter.
+ *
+ * ## État de vérification
+ *
+ * Compile et s'enregistre au démarrage (`Registering plugin instance: BleMesh`,
+ * vérifié sur Galaxy S24). Les échanges eux-mêmes n'ont pas encore été exercés
+ * entre deux appareils.
  */
 @CapacitorPlugin(
     name = "BleMesh",
@@ -90,6 +105,46 @@ class BleMeshPlugin : Plugin() {
 
     @PluginMethod
     fun isAvailable(call: PluginCall) {
+        // Demander avant de toucher quoi que ce soit : la lecture de l'état de
+        // l'adaptateur est elle-même protégée depuis Android 12.
+        if (!hasRequiredPermissions()) {
+            requestAllPermissions(call, "onBluetoothPermissions")
+            return
+        }
+        respondAvailability(call)
+    }
+
+    /** Retour de la demande de permissions. */
+    @PermissionCallback
+    private fun onBluetoothPermissions(call: PluginCall) {
+        if (hasRequiredPermissions()) {
+            respondAvailability(call)
+        } else {
+            // Un refus n'est pas une erreur : c'est une réponse. La rendre
+            // proprement permet à l'interface d'expliquer plutôt que d'échouer.
+            call.resolve(
+                JSObject()
+                    .put("available", false)
+                    .put("canAdvertise", false)
+                    .put("reason", "permissions Bluetooth refusées")
+            )
+        }
+    }
+
+    private fun respondAvailability(call: PluginCall) {
+        try {
+            respondAvailabilityUnsafe(call)
+        } catch (error: SecurityException) {
+            call.resolve(
+                JSObject()
+                    .put("available", false)
+                    .put("canAdvertise", false)
+                    .put("reason", "permission Bluetooth manquante : ${error.message}")
+            )
+        }
+    }
+
+    private fun respondAvailabilityUnsafe(call: PluginCall) {
         val adapter = adapter
         val available = adapter != null && adapter.isEnabled
         // `isMultipleAdvertisementSupported` est faux sur une partie du parc :
@@ -109,76 +164,84 @@ class BleMeshPlugin : Plugin() {
 
     @PluginMethod
     fun startAdvertising(call: PluginCall) {
-        val serviceUuid = UUID.fromString(call.getString("serviceUuid") ?: return call.reject("serviceUuid manquant"))
-        val fingerprintHex = call.getString("fingerprintHex") ?: return call.reject("fingerprintHex manquant")
-        val localName = call.getString("localName") ?: "ttd"
-
-        val server = manager?.openGattServer(context, serverCallback)
-            ?: return call.reject("serveur GATT indisponible")
-        gattServer = server
-
-        val service = BluetoothGattService(serviceUuid, BluetoothGattService.SERVICE_TYPE_PRIMARY)
-        val rx = BluetoothGattCharacteristic(
-            RX_UUID,
-            BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
-            BluetoothGattCharacteristic.PERMISSION_WRITE,
-        )
-        val tx = BluetoothGattCharacteristic(
-            TX_UUID,
-            BluetoothGattCharacteristic.PROPERTY_NOTIFY,
-            BluetoothGattCharacteristic.PERMISSION_READ,
-        )
-        tx.addDescriptor(
-            BluetoothGattDescriptor(
-                CCCD_UUID,
-                BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
-            ),
-        )
-        service.addCharacteristic(rx)
-        service.addCharacteristic(tx)
-        server.addService(service)
-        txCharacteristic = tx
-
-        val settings = AdvertiseSettings.Builder()
-            // Basse latence : la découverte doit être rapide, on est en
-            // présentiel et l'annonce ne dure que le temps du lobby.
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
-            .setConnectable(true)
-            .build()
-
-        // Les 31 octets d'une annonce héritée ne permettent pas d'y mettre le
-        // code entier : on n'émet que son empreinte sur trois octets, et le
-        // code complet est vérifié après connexion.
-        //
-        // L'empreinte est émise **deux fois**, en service data et dans le nom.
-        // Ce n'est pas de la redondance gratuite : CoreBluetooth ne sait pas
-        // émettre de service data, si bien qu'un hôte iPhone ne peut la placer
-        // que dans son nom. Un Android qui ne lirait que le service data ne
-        // verrait jamais un hôte iOS — et c'est précisément le chemin que le
-        // BLE existe pour couvrir.
-        val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(false)
-            .addServiceUuid(ParcelUuid(serviceUuid))
-            .addServiceData(ParcelUuid(serviceUuid), fingerprintHex.hexToBytes())
-            .build()
-        val scanResponse = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
-            .build()
-
-        adapter?.name = "$fingerprintHex|$localName"
-        val callback = object : AdvertiseCallback() {
-            override fun onStartFailure(errorCode: Int) {
-                call.reject("advertising refusé (code $errorCode)")
-            }
-
-            override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                call.resolve()
-            }
+        if (!hasRequiredPermissions()) {
+            call.reject("permissions Bluetooth non accordées")
+            return
         }
-        advertiseCallback = callback
-        adapter?.bluetoothLeAdvertiser?.startAdvertising(settings, data, scanResponse, callback)
-            ?: call.reject("advertising non supporté par cet appareil")
+        try {
+            val serviceUuid = UUID.fromString(call.getString("serviceUuid") ?: return call.reject("serviceUuid manquant"))
+            val fingerprintHex = call.getString("fingerprintHex") ?: return call.reject("fingerprintHex manquant")
+            val localName = call.getString("localName") ?: "ttd"
+
+            val server = manager?.openGattServer(context, serverCallback)
+                ?: return call.reject("serveur GATT indisponible")
+            gattServer = server
+
+            val service = BluetoothGattService(serviceUuid, BluetoothGattService.SERVICE_TYPE_PRIMARY)
+            val rx = BluetoothGattCharacteristic(
+                RX_UUID,
+                BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
+                BluetoothGattCharacteristic.PERMISSION_WRITE,
+            )
+            val tx = BluetoothGattCharacteristic(
+                TX_UUID,
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+                BluetoothGattCharacteristic.PERMISSION_READ,
+            )
+            tx.addDescriptor(
+                BluetoothGattDescriptor(
+                    CCCD_UUID,
+                    BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE,
+                ),
+            )
+            service.addCharacteristic(rx)
+            service.addCharacteristic(tx)
+            server.addService(service)
+            txCharacteristic = tx
+
+            val settings = AdvertiseSettings.Builder()
+                // Basse latence : la découverte doit être rapide, on est en
+                // présentiel et l'annonce ne dure que le temps du lobby.
+                .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_LATENCY)
+                .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_HIGH)
+                .setConnectable(true)
+                .build()
+
+            // Les 31 octets d'une annonce héritée ne permettent pas d'y mettre le
+            // code entier : on n'émet que son empreinte sur trois octets, et le
+            // code complet est vérifié après connexion.
+            //
+            // L'empreinte est émise **deux fois**, en service data et dans le nom.
+            // Ce n'est pas de la redondance gratuite : CoreBluetooth ne sait pas
+            // émettre de service data, si bien qu'un hôte iPhone ne peut la placer
+            // que dans son nom. Un Android qui ne lirait que le service data ne
+            // verrait jamais un hôte iOS — et c'est précisément le chemin que le
+            // BLE existe pour couvrir.
+            val data = AdvertiseData.Builder()
+                .setIncludeDeviceName(false)
+                .addServiceUuid(ParcelUuid(serviceUuid))
+                .addServiceData(ParcelUuid(serviceUuid), fingerprintHex.hexToBytes())
+                .build()
+            val scanResponse = AdvertiseData.Builder()
+                .setIncludeDeviceName(true)
+                .build()
+
+            adapter?.name = "$fingerprintHex|$localName"
+            val callback = object : AdvertiseCallback() {
+                override fun onStartFailure(errorCode: Int) {
+                    call.reject("advertising refusé (code $errorCode)")
+                }
+
+                override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
+                    call.resolve()
+                }
+            }
+            advertiseCallback = callback
+            adapter?.bluetoothLeAdvertiser?.startAdvertising(settings, data, scanResponse, callback)
+                ?: call.reject("advertising non supporté par cet appareil")
+        } catch (error: SecurityException) {
+            call.reject("permission Bluetooth manquante : ${error.message}")
+        }
     }
 
     @PluginMethod
@@ -192,49 +255,57 @@ class BleMeshPlugin : Plugin() {
 
     @PluginMethod
     fun startScan(call: PluginCall) {
-        val serviceUuid = UUID.fromString(call.getString("serviceUuid") ?: return call.reject("serviceUuid manquant"))
-        val wanted = call.getString("fingerprintHex")
-
-        val filters = listOf(
-            ScanFilter.Builder().setServiceUuid(ParcelUuid(serviceUuid)).build(),
-        )
-        val settings = ScanSettings.Builder()
-            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
-            .build()
-
-        val callback = object : ScanCallback() {
-            override fun onScanResult(callbackType: Int, result: ScanResult) {
-                val advertisedName = result.scanRecord?.deviceName ?: ""
-                val fromName = advertisedName.substringBefore('|', "")
-                val fromServiceData = result.scanRecord
-                    ?.getServiceData(ParcelUuid(serviceUuid))
-                    ?.toHex()
-
-                // On accepte les deux emplacements : un hôte Android publie
-                // l'empreinte en service data, un hôte iPhone ne peut la mettre
-                // que dans son nom. Ne lire qu'une source reviendrait à ignorer
-                // toute une plateforme.
-                val fingerprint = fromServiceData?.takeIf { it.isNotEmpty() }
-                    ?: fromName.takeIf { it.length == 6 }
-                    ?: return
-
-                if (wanted != null && !wanted.equals(fingerprint, ignoreCase = true)) return
-
-                val displayName = advertisedName.substringAfter('|', advertisedName)
-                notifyListeners(
-                    "discovered",
-                    JSObject()
-                        .put("deviceId", result.device.address)
-                        .put("name", displayName.ifEmpty { result.device.address })
-                        .put("rssi", result.rssi)
-                        .put("fingerprintHex", fingerprint),
-                )
-            }
+        if (!hasRequiredPermissions()) {
+            call.reject("permissions Bluetooth non accordées")
+            return
         }
-        scanCallback = callback
-        adapter?.bluetoothLeScanner?.startScan(filters, settings, callback)
-            ?: return call.reject("scan indisponible")
-        call.resolve()
+        try {
+            val serviceUuid = UUID.fromString(call.getString("serviceUuid") ?: return call.reject("serviceUuid manquant"))
+            val wanted = call.getString("fingerprintHex")
+
+            val filters = listOf(
+                ScanFilter.Builder().setServiceUuid(ParcelUuid(serviceUuid)).build(),
+            )
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+
+            val callback = object : ScanCallback() {
+                override fun onScanResult(callbackType: Int, result: ScanResult) {
+                    val advertisedName = result.scanRecord?.deviceName ?: ""
+                    val fromName = advertisedName.substringBefore('|', "")
+                    val fromServiceData = result.scanRecord
+                        ?.getServiceData(ParcelUuid(serviceUuid))
+                        ?.toHex()
+
+                    // On accepte les deux emplacements : un hôte Android publie
+                    // l'empreinte en service data, un hôte iPhone ne peut la mettre
+                    // que dans son nom. Ne lire qu'une source reviendrait à ignorer
+                    // toute une plateforme.
+                    val fingerprint = fromServiceData?.takeIf { it.isNotEmpty() }
+                        ?: fromName.takeIf { it.length == 6 }
+                        ?: return
+
+                    if (wanted != null && !wanted.equals(fingerprint, ignoreCase = true)) return
+
+                    val displayName = advertisedName.substringAfter('|', advertisedName)
+                    notifyListeners(
+                        "discovered",
+                        JSObject()
+                            .put("deviceId", result.device.address)
+                            .put("name", displayName.ifEmpty { result.device.address })
+                            .put("rssi", result.rssi)
+                            .put("fingerprintHex", fingerprint),
+                    )
+                }
+            }
+            scanCallback = callback
+            adapter?.bluetoothLeScanner?.startScan(filters, settings, callback)
+                ?: return call.reject("scan indisponible")
+            call.resolve()
+        } catch (error: SecurityException) {
+            call.reject("permission Bluetooth manquante : ${error.message}")
+        }
     }
 
     @PluginMethod
@@ -246,58 +317,66 @@ class BleMeshPlugin : Plugin() {
 
     @PluginMethod
     fun connect(call: PluginCall) {
-        val deviceId = call.getString("deviceId") ?: return call.reject("deviceId manquant")
-        val device = adapter?.getRemoteDevice(deviceId) ?: return call.reject("appareil inconnu")
-
-        val callback = object : BluetoothGattCallback() {
-            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-                if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    // La MTU se négocie avant toute découverte de services :
-                    // l'ordre inverse laisse la connexion à 23 octets.
-                    gatt.requestMtu(REQUESTED_MTU)
-                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                    gattClients.remove(deviceId)
-                    mtus.remove(deviceId)
-                    notifyListeners("peerDisconnected", JSObject().put("peerId", deviceId))
-                }
-            }
-
-            override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-                mtus[deviceId] = mtu
-                gatt.discoverServices()
-            }
-
-            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-                val tx = gatt.services
-                    .firstNotNullOfOrNull { it.getCharacteristic(TX_UUID) }
-                    ?: return call.reject("caractéristique de réception absente")
-                gatt.setCharacteristicNotification(tx, true)
-                tx.getDescriptor(CCCD_UUID)?.let { descriptor ->
-                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
-                    gatt.writeDescriptor(descriptor)
-                }
-                gattClients[deviceId] = gatt
-                call.resolve(
-                    JSObject()
-                        .put("peerId", deviceId)
-                        .put("mtu", mtus[deviceId] ?: 23),
-                )
-            }
-
-            override fun onCharacteristicChanged(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                value: ByteArray,
-            ) {
-                notifyListeners(
-                    "received",
-                    JSObject()
-                        .put("peerId", deviceId)
-                        .put("data", Base64.encodeToString(value, Base64.NO_WRAP)),
-                )
-            }
+        if (!hasRequiredPermissions()) {
+            call.reject("permissions Bluetooth non accordées")
+            return
         }
-        device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        try {
+            val deviceId = call.getString("deviceId") ?: return call.reject("deviceId manquant")
+            val device = adapter?.getRemoteDevice(deviceId) ?: return call.reject("appareil inconnu")
+
+            val callback = object : BluetoothGattCallback() {
+                override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                    if (newState == BluetoothProfile.STATE_CONNECTED) {
+                        // La MTU se négocie avant toute découverte de services :
+                        // l'ordre inverse laisse la connexion à 23 octets.
+                        gatt.requestMtu(REQUESTED_MTU)
+                    } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                        gattClients.remove(deviceId)
+                        mtus.remove(deviceId)
+                        notifyListeners("peerDisconnected", JSObject().put("peerId", deviceId))
+                    }
+                }
+
+                override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
+                    mtus[deviceId] = mtu
+                    gatt.discoverServices()
+                }
+
+                override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                    val tx = gatt.services
+                        .firstNotNullOfOrNull { it.getCharacteristic(TX_UUID) }
+                        ?: return call.reject("caractéristique de réception absente")
+                    gatt.setCharacteristicNotification(tx, true)
+                    tx.getDescriptor(CCCD_UUID)?.let { descriptor ->
+                        descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        gatt.writeDescriptor(descriptor)
+                    }
+                    gattClients[deviceId] = gatt
+                    call.resolve(
+                        JSObject()
+                            .put("peerId", deviceId)
+                            .put("mtu", mtus[deviceId] ?: 23),
+                    )
+                }
+
+                override fun onCharacteristicChanged(
+                    gatt: BluetoothGatt,
+                    characteristic: BluetoothGattCharacteristic,
+                    value: ByteArray,
+                ) {
+                    notifyListeners(
+                        "received",
+                        JSObject()
+                            .put("peerId", deviceId)
+                            .put("data", Base64.encodeToString(value, Base64.NO_WRAP)),
+                    )
+                }
+            }
+            device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
+        } catch (error: SecurityException) {
+            call.reject("permission Bluetooth manquante : ${error.message}")
+        }
     }
 
     @PluginMethod

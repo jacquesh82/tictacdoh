@@ -1,4 +1,5 @@
 import type { TransportKind } from '@ttd/core'
+import { isNative, nativePlatform } from './native.js'
 
 export type Support = 'oui' | 'non' | 'partiel'
 
@@ -21,12 +22,20 @@ const nav = globalThis.navigator as (Navigator & { bluetooth?: unknown }) | unde
  * Écrit à partir des API réellement présentes plutôt que d'une détection de
  * navigateur : c'est la seule façon honnête de le savoir, et cela évite de
  * promettre au joueur un mode qui échouera au moment de se connecter.
+ *
+ * **La coquille native change tout.** Web Bluetooth n'existe pas dans un
+ * WebView, mais le plugin natif, lui, sait s'annoncer *et* scanner. Ne tester
+ * que les API du navigateur faisait afficher « Bluetooth indisponible » dans
+ * l'application mobile — là précisément où il est disponible, et où il est le
+ * seul chemin hors-ligne entre iOS et Android.
  */
 export function capabilities(): CapabilityRow[] {
   const hasWebRtc = typeof RTCPeerConnection !== 'undefined'
   const hasWebSocket = typeof WebSocket !== 'undefined'
   const hasWebBluetooth = Boolean(nav?.bluetooth) && isSecure
   const hasNfcRead = 'NDEFReader' in globalThis
+  const natif = isNative()
+  const plateforme = nativePlatform()
 
   return [
     {
@@ -57,30 +66,41 @@ export function capabilities(): CapabilityRow[] {
       label: 'Bluetooth',
       // Web Bluetooth est central-only : un navigateur ne peut pas se rendre
       // découvrable, donc jamais héberger hors ligne. C'est une limite de
-      // l'API, pas un choix de conception.
-      host: 'non',
-      join: hasWebBluetooth ? 'partiel' : 'non',
-      note: hasWebBluetooth
-        ? 'Le navigateur peut rejoindre, jamais héberger : Web Bluetooth ne sait pas s’annoncer.'
-        : isSecure
-          ? 'Web Bluetooth absent de ce navigateur. Disponible dans l’application mobile.'
-          : 'Web Bluetooth exige une origine sécurisée (HTTPS).',
+      // l'API, pas un choix de conception. Le plugin natif, lui, tient les
+      // deux rôles.
+      host: natif ? 'oui' : 'non',
+      join: natif ? 'oui' : hasWebBluetooth ? 'partiel' : 'non',
+      note: natif
+        ? 'Le seul chemin hors-ligne entre iOS et Android. Débit limité : ~1,5 ko/s.'
+        : hasWebBluetooth
+          ? 'Le navigateur peut rejoindre, jamais héberger : Web Bluetooth ne sait pas s’annoncer.'
+          : isSecure
+            ? 'Web Bluetooth absent de ce navigateur. Disponible dans l’application mobile.'
+            : 'Web Bluetooth exige une origine sécurisée (HTTPS).',
     },
     {
       kind: 'nearby',
       label: 'Wi-Fi Direct',
-      host: 'non',
-      join: 'non',
-      note: 'Aucune API web. Réservé à l’application mobile.',
+      host: natif ? 'oui' : 'non',
+      join: natif ? 'oui' : 'non',
+      // Nearby et Multipeer ne se parlent pas : le préciser évite de croire
+      // qu'un iPhone et un Android se trouveront par ce moyen.
+      note: natif
+        ? plateforme === 'ios'
+          ? 'MultipeerConnectivity : entre appareils Apple seulement.'
+          : 'Nearby Connections : entre appareils Android seulement.'
+        : 'Aucune API web. Réservé à l’application mobile.',
     },
     {
       kind: 'nfc',
       label: 'NFC',
       host: 'non',
       join: hasNfcRead ? 'partiel' : 'non',
+      // Le plugin NFC n'est pas écrit : l'annoncer disponible en natif serait
+      // une promesse fausse, même si la plateforme le permettrait.
       note: hasNfcRead
         ? 'Lecture de tags seulement. Présenter un ticket demande l’application Android.'
-        : 'Web NFC absent. Android peut présenter via HCE, iOS ne sait que lire.',
+        : 'Web NFC absent. Le plugin natif reste à écrire.',
     },
   ]
 }
