@@ -1,6 +1,7 @@
 import { type DistanceEstimate, type TransportKind, estimateDistance, smoothRssi } from '@ttd/core'
 import { WsTransport } from '@ttd/transport-ws'
 import { relayUrl, hintDefaults } from './app-config.js'
+import { playerName } from './home.js'
 import { BleMesh, isNative } from './native.js'
 
 /**
@@ -18,7 +19,28 @@ import { BleMesh, isNative } from './native.js'
  * Les deux sont présentés ensemble parce que l'utilisateur cherche des
  * *joueurs*, pas des transports — mais chaque entrée dit d'où elle vient, faute
  * de quoi l'absence de distance sur une entrée Wi-Fi passerait pour un bug.
+ *
+ * ## Chercher ne suffit pas : il faut aussi se montrer
+ *
+ * Première version de ce module : elle ne faisait que scanner. Deux téléphones
+ * ouvrant tous deux la page ne se voyaient donc **jamais** — personne
+ * n'émettait, et la liste restait vide sans que rien ne l'explique. Un scan ne
+ * trouve que ce qui s'annonce.
+ *
+ * Chaque appareil s'annonce donc pendant qu'il cherche. L'annonce de
+ * diagnostic porte une empreinte réservée, distincte de celle d'une vraie
+ * partie : on se rend visible sans pour autant prétendre héberger une salle
+ * que personne ne pourrait rejoindre.
  */
+
+/**
+ * Empreinte des annonces de diagnostic.
+ *
+ * Une vraie partie annonce l'empreinte de son code court, ce qui permet de
+ * filtrer. Ici on veut être vu de tous, d'où une valeur réservée que le
+ * parcours de connexion n'utilisera jamais.
+ */
+const DIAGNOSTIC_FINGERPRINT = '000000'
 
 export interface NearbyPeer {
   readonly id: string
@@ -138,11 +160,28 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         })
         cleanups.push(() => void listener.remove())
 
+        const serviceUuid = hintDefaults().bleServiceUuid
+
         // Sans filtre d'empreinte : ici on veut *voir* ce qui est autour, pas
         // rejoindre une salle précise. Le filtrage par code appartient au
         // parcours de connexion, pas au diagnostic.
-        await BleMesh.startScan({ serviceUuid: hintDefaults().bleServiceUuid })
+        await BleMesh.startScan({ serviceUuid })
         cleanups.push(() => void BleMesh.stopScan())
+
+        // Et se rendre visible, sans quoi deux appareils qui cherchent tous
+        // les deux ne se trouveraient jamais.
+        if (status.canAdvertise) {
+          await BleMesh.startAdvertising({
+            serviceUuid,
+            fingerprintHex: DIAGNOSTIC_FINGERPRINT,
+            localName: playerName() || 'Appareil',
+          })
+          cleanups.push(() => void BleMesh.stopAdvertising())
+        } else {
+          options.onStatus(
+            'Cet appareil sait chercher mais pas s’annoncer : il verra les autres sans être vu.',
+          )
+        }
       } catch (error) {
         if (!stopped) options.onStatus(`Scan Bluetooth impossible : ${(error as Error).message}`)
       }

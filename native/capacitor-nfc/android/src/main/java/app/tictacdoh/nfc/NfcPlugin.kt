@@ -1,7 +1,9 @@
 package app.tictacdoh.nfc
 
 import android.app.Activity
+import android.content.ComponentName
 import android.nfc.NfcAdapter
+import android.nfc.cardemulation.CardEmulation
 import android.nfc.Tag
 import android.nfc.tech.Ndef
 import android.util.Base64
@@ -128,13 +130,43 @@ class NfcPlugin : Plugin() {
         NdefHostApduService.present(Base64.decode(base64, Base64.NO_WRAP)) {
             notifyListeners("ticketRead", JSObject().put("at", System.currentTimeMillis()))
         }
+
+        // Réclamer la priorité au premier plan.
+        //
+        // L'AID de l'application NDEF n'est pas exclusif : le service intégré
+        // « Embedded tag » le revendique aussi, et le système affiche alors une
+        // notification de conflit en laissant l'utilisateur trancher dans les
+        // réglages — constaté sur Galaxy S24. Cette API donne la priorité à
+        // notre service tant que l'application est visible, ce qui est
+        // exactement la portée voulue : on ne veut pas intercepter le NFC en
+        // arrière-plan.
+        preferService(true)
         call.resolve()
     }
 
     @PluginMethod
     fun stopPresenting(call: PluginCall) {
+        preferService(false)
         NdefHostApduService.stop()
         call.resolve()
+    }
+
+    /** Prend ou rend la priorité sur l'AID NDEF, au premier plan seulement. */
+    private fun preferService(prefer: Boolean) {
+        val adapter = adapter ?: return
+        val activity: Activity = activity
+        val emulation = CardEmulation.getInstance(adapter)
+        val component = ComponentName(activity, NdefHostApduService::class.java)
+        activity.runOnUiThread {
+            try {
+                if (prefer) emulation.setPreferredService(activity, component)
+                else emulation.unsetPreferredService(activity)
+            } catch (error: Exception) {
+                // Certaines surcouches refusent l'appel hors premier plan. Ce
+                // n'est pas bloquant : le service reste déclaré, l'utilisateur
+                // devra simplement le choisir dans les réglages.
+            }
+        }
     }
 
     override fun handleOnDestroy() {
@@ -144,6 +176,7 @@ class NfcPlugin : Plugin() {
             adapter?.disableReaderMode(activity)
         } catch (_: Exception) {
         }
+        preferService(false)
         NdefHostApduService.stop()
     }
 }
