@@ -80,3 +80,33 @@ export function webOrigin(): string {
 
 /** @deprecated Utiliser `webOrigin()`, qui relit le réglage à chaque appel. */
 export const WEB_ORIGIN = webOrigin()
+
+/**
+ * Message d'échec du relay, avec le geste qui le corrige.
+ *
+ * Le conseil dépend de l'endroit où l'on tourne, et c'est tout l'intérêt :
+ * « le relay est-il lancé ? » a du sens sur un poste de développement et aucun
+ * sur un téléphone, où l'adresse est simplement absente. Dans la coquille
+ * native la page vient de `localhost`, donc l'adresse ne peut pas être déduite
+ * de l'origine et le repli désigne l'appareil lui-même.
+ */
+export function relayAdvice(message: string): string {
+  const url = relayUrl()
+  const loopback = /\/\/(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/.test(url)
+  const natif = globalThis.location?.protocol === 'capacitor:' || isNativeShell()
+  if (natif && loopback && !relayUrlIsManual()) {
+    return `${url} désigne cet appareil. Renseignez l’adresse du serveur dans Diagnostic → Configuration.`
+  }
+  return `${message} — relay visé : ${url}`
+}
+
+/**
+ * Coquille native, détectée sans dépendre de Capacitor.
+ *
+ * `app-config` est importé très tôt et par des modules qui ne doivent rien
+ * savoir du natif : on se contente donc d'un indice d'origine.
+ */
+function isNativeShell(): boolean {
+  const h = globalThis.location?.hostname
+  return h === 'localhost' && globalThis.location?.port === ''
+}

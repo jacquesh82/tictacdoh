@@ -2,7 +2,7 @@ import { Netcode, type Session } from '@ttd/core'
 import { type GamePlugin, GameRuntime, Scoreboard } from '@ttd/game-sdk'
 import { CATALOGUE, DEFAULT_GAME_ID, type GameOffer, gameById, offers, resolveGame } from '@ttd/games'
 import { seedFrom } from '@ttd/core'
-import { WEB_ORIGIN, hintDefaults } from './app-config.js'
+import { WEB_ORIGIN, hintDefaults, relayAdvice } from './app-config.js'
 import { applyFieldAspect, attachLocalInputs, drawGame, seatColor } from './game-view.js'
 import { playerName } from './home.js'
 import { displayName, tagged } from './device.js'
@@ -539,7 +539,7 @@ export function renderNet(
     .catch((error: Error) => {
       waitingSub.textContent = 'Connexion impossible.'
       ledeEl.textContent = 'Connexion impossible.'
-      errorEl.textContent = `${error.message} — le relay est-il lancé ? (npm run relay)`
+      errorEl.textContent = relayAdvice(error.message)
     })
 
   startButton.addEventListener('click', startMatch)

@@ -1,6 +1,6 @@
 import { type DistanceEstimate, type TransportKind, estimateDistance, smoothRssi } from '@ttd/core'
 import { WsTransport } from '@ttd/transport-ws'
-import { relayUrl, relayUrlIsManual, hintDefaults } from './app-config.js'
+import { hintDefaults, relayAdvice, relayUrl } from './app-config.js'
 import { playerName } from './home.js'
 import { type PeerPlatform, displayName, tagged, untag } from './device.js'
 import { BleMesh, Nearby, isNative } from './native.js'
@@ -129,23 +129,6 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
     publish()
   }
 
-  /**
-   * Message d'échec du relay, avec le geste qui le corrige.
-   *
-   * Dans la coquille native, la page est servie depuis `localhost` : l'adresse
-   * ne peut donc pas être déduite de l'origine, et le repli désigne le
-   * téléphone lui-même. Le dire noir sur blanc évite de chercher une panne
-   * réseau là où il n'y a qu'un réglage à renseigner.
-   */
-  const conseilRelay = (error: Error): string => {
-    const url = relayUrl()
-    const localhost = /\/\/(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/.test(url)
-    if (isNative() && localhost && !relayUrlIsManual()) {
-      return `${url} désigne ce téléphone. Renseignez l’adresse du serveur dans l’onglet Détaillé.`
-    }
-    return `${url} injoignable : ${error.message}`
-  }
-
   const moyens: string[] = []
   const etat = (kind: TransportKind, ok: boolean, message: string) =>
     options.onTransportState?.(kind, { ok, message })
@@ -170,7 +153,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
           })
         }
       } catch (error) {
-        if (!stopped) etat('ws', false, conseilRelay(error as Error))
+        if (!stopped) etat('ws', false, relayAdvice((error as Error).message))
       } finally {
         await transport.close()
       }
