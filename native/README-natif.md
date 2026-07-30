@@ -1,14 +1,67 @@
 # Code natif — état et marche à suivre
 
-> ⚠️ **Rien dans ce dossier n'a été compilé ni exécuté.** La machine de
-> développement était sous Linux, sans SDK Android, sans Xcode et sans appareil.
-> Le Bluetooth et le Wi-Fi Direct ne se simulent pas : seul un test sur matériel
-> réel peut valider ces fichiers.
+> **Phase 9 close le 31 juillet 2026.** Ce qui suit distingue soigneusement ce
+> qui a été *vérifié* de ce qui reste *supposé* : la nuance décide de ce qu'on
+> peut affirmer au reste de l'équipe.
 
-Ce qui est en revanche **vérifié** : la couche TypeScript des deux transports,
-et le contrat exact que le natif doit honorer. Voir `packages/transport-ble`
-(17 tests) et `packages/transport-nearby` (13 tests), qui font tourner une
-partie complète d'Esquive à trois joueurs contre une maquette de plugin.
+## Ce qui est vérifié
+
+**Sur matériel** (Galaxy S24 et iPhone SE 3) :
+
+| Fait | Preuve |
+|---|---|
+| Les trois plugins Android s'enregistrent | `Registering plugin instance: BleMesh / Nearby / Nfc` |
+| Les quatre plugins iOS sont instanciés | `packageClassList` de l'`.ipa` construite |
+| L'annonce BLE Android est acceptée | `onAdvertisingSetStarted(1, 1, 0)` — statut 0 |
+| Le scan BLE Android démarre | `onScannerRegistered() status=0` |
+| Le service NFC Android est routé | `dumpsys nfc` : AID `D2760000850101` → notre service |
+| Le Swift compile réellement | Erreur volontaire injectée → build en échec, puis retirée |
+| Une partie complète tourne en WebRTC | Empreintes identiques au tick 105, RTT 47 ms |
+| Une partie complète tourne par le relay | S24 ↔ PC |
+
+**En test automatisé** : la couche TypeScript des trois plugins, et le contrat
+exact que le natif doit honorer — `packages/transport-ble` (17 tests),
+`packages/transport-nearby` (13), `packages/nfc` (12), qui font tourner une
+partie complète d'Esquive contre une maquette de plugin.
+
+## Ce qui n'est PAS vérifié
+
+**Aucun octet de jeu n'a traversé un lien BLE réel.** Les deux plateformes
+s'annoncent et se cherchent, c'est établi. Restent trois inconnues que seul le
+matériel tranchera : l'établissement de la connexion GATT, la négociation de
+MTU, et la tenue du débit dans le budget de 1,5 ko/s.
+
+**Wi-Fi Direct n'a jamais été exercé**, et ne peut pas l'être avec un Android
+et un iPhone : Nearby Connections et MultipeerConnectivity sont étanches. Il
+faut deux appareils de même famille.
+
+**Le NFC n'a jamais été exercé** non plus. Côté iPhone il ne le sera pas sans
+compte Apple payant : l'autorisation applicative de lecture n'est pas
+accessible aux comptes gratuits, et elle n'est volontairement pas déclarée —
+l'ajouter ferait échouer la signature de toute l'application.
+
+## Défauts trouvés sur appareil, que rien d'autre n'aurait révélés
+
+Ils valent d'être listés : chacun était invisible en test, et plusieurs se
+masquaient mutuellement.
+
+1. **Plugin iOS jamais instancié.** Un pod ajouté à la main au `Podfile`
+   compile et se lie, mais Capacitor n'instancie que ce qui figure dans
+   `packageClassList` — rempli uniquement à partir de vrais paquets npm.
+2. **État CoreBluetooth lu trop tôt.** `centralManager.state` vaut `.unknown`
+   juste après la création ; le délégué qui le renseigne était vide. L'iPhone
+   répondait « indisponible » à tous les coups.
+3. **Annonce BLE trop grosse.** 42 octets pour un maximum de 31 : le service
+   data répétait l'UUID 128 bits entier.
+4. **Permissions Bluetooth jamais demandées.** Déclarées mais non réclamées à
+   l'exécution ; depuis Android 12 la seule lecture de `adapter.isEnabled` tue
+   le processus.
+5. **Découverte sans annonce.** Deux appareils qui cherchent sans émettre ne se
+   voient jamais.
+6. **Conflit d'AID NFC** avec le service intégré d'Android, résolu par
+   `setPreferredService`.
+7. **Nom Bluetooth du téléphone détourné sans restauration** — l'appareil
+   restait baptisé `000000|Koko`, visible de tous.
 
 ## Contenu
 
