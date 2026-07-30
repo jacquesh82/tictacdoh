@@ -97,6 +97,13 @@ const SHELL = (title: string) => `
         <button id="waiting-close" hidden>Fermer la salle</button>
       </div>
       <p id="waiting-note" class="muted" style="margin:0.5rem 0 0"></p>
+      <!--
+        L'erreur de connexion s'affiche ici, dans la feuille elle-même. Elle
+        n'était écrite que dans le bandeau du bas, que la mise en page paysage
+        masque : le message le plus utile de l'écran était donc invisible
+        exactement quand il servait.
+      -->
+      <p id="waiting-error" class="error" style="margin:0.5rem 0 0;white-space:normal"></p>
     </section>
   </div>
 `
@@ -138,6 +145,7 @@ export function renderNet(
   const waitingStart = root.querySelector<HTMLButtonElement>('#waiting-start')!
   const waitingClose = root.querySelector<HTMLButtonElement>('#waiting-close')!
   const waitingNote = root.querySelector<HTMLElement>('#waiting-note')!
+  const waitingError = root.querySelector<HTMLElement>('#waiting-error')!
   const results = root.querySelector<HTMLElement>('#results')!
   const resultsTitle = root.querySelector<HTMLElement>('#results-title')!
   const resultsReason = root.querySelector<HTMLElement>('#results-reason')!
@@ -441,6 +449,11 @@ export function renderNet(
     })
   }
 
+  // Premier rendu du choix de jeu, sans attendre la session : elle n'existera
+  // jamais si la connexion échoue, et la liste restait alors vide sous un
+  // titre « Jeu » — ce qui ressemble à un bug plutôt qu'à un échec réseau.
+  renderGamePick()
+
   nextRound.addEventListener('click', startRound)
 
   /** La salle a disparu sous nos pieds : le dire plutôt que de figer l'écran. */
@@ -537,9 +550,17 @@ export function renderNet(
       }
     })
     .catch((error: Error) => {
+      const conseil = relayAdvice(error.message)
       waitingSub.textContent = 'Connexion impossible.'
       ledeEl.textContent = 'Connexion impossible.'
-      errorEl.textContent = relayAdvice(error.message)
+      errorEl.textContent = conseil
+      // Et dans la feuille, seul endroit que l'utilisateur regarde vraiment.
+      waitingError.textContent = conseil
+      // Sans session, plus rien ne relancera l'affichage : on désarme les
+      // boutons qui ne peuvent plus rien faire plutôt que de les laisser
+      // inertes sous le doigt.
+      waitingStart.disabled = true
+      waitingStart.textContent = 'Connexion impossible'
     })
 
   startButton.addEventListener('click', startMatch)
