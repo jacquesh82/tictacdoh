@@ -1,0 +1,15 @@
+{
+	"appId": "app.tictacdoh",
+	"appName": "TicTacDoh",
+	"webDir": "../web/dist",
+	"server": {
+		"androidScheme": "http",
+		"cleartext": true
+	},
+	"plugins": {
+		"BleMesh": {},
+		"Nearby": {},
+		"NfcTicket": {}
+	},
+	"packageClassList": []
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>TicTacDoh</title>
+
+    <!--
+      Installation sur l'écran d'accueil.
+
+      C'est le seul moyen d'installer l'application sur un iPhone sans compte
+      Apple Developer : Safari sait poser une PWA sur l'écran d'accueil, et
+      elle s'ouvre alors en plein écran, sans barre de navigation.
+
+      `apple-mobile-web-app-*` fait doublon avec le manifeste, mais iOS ne lit
+      toujours pas `display` ni `theme_color` : sans ces balises, l'application
+      s'ouvre dans Safari avec sa barre d'adresse, ce qui vole la hauteur dont
+      le terrain a besoin.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#141a24" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="TicTacDoh" />
+    <link rel="apple-touch-icon" href="/icone-180.png" />
+    <script type="module" crossorigin src="/assets/index-NdqoRMHU.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-IV4_epIe.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#/">TicTacDoh</a>
+      <nav>
+        <a href="#/">Jouer</a>
+        <a href="#/diag">Diagnostic</a>
+      </nav>
+    </header>
+    <main id="app"></main>
+  </body>
+</html>

@@ -40,7 +40,56 @@ validité du code Swift.
 
 ---
 
-## 3. Application native signée — demande un compte Apple
+## 3. Sideload avec un Apple ID gratuit — sans Mac
+
+**C'est le chemin qui met réellement l'application native sur l'iPhone sans
+payer les 99 €/an.** Il repose sur un fait simple : un `.ipa` n'est qu'une
+archive zip contenant `Payload/App.app`. La construire ne demande aucun compte
+Apple — c'est ce que fait le workflow, à chaque poussée sur `main`. Seule la
+*signature* exige un identifiant, et elle se pose localement.
+
+### Récupérer le paquet
+
+```bash
+gh run download --name ipa-non-signe --dir build-ios
+```
+
+Le fichier obtenu est un Mach-O arm64 non signé, identifiant `app.tictacdoh`.
+
+### Signer et installer
+
+Un signeur compatible « compte gratuit » est nécessaire. Deux sont packagés :
+
+```bash
+yay -S iloader-bin        # activement maintenu — meilleures chances sur iOS 26
+# ou
+yay -S sideloader-bin     # Dadoum/Sideloader, plus ancien
+```
+
+L'outil demande **votre identifiant Apple et votre mot de passe** : il s'en sert
+pour créer, via l'API d'Apple, un certificat de développement et un profil liés
+à votre compte personnel, puis signe le `.ipa` et l'installe par USB. Saisissez-
+les vous-même, dans l'outil — ils n'ont à transiter par rien d'autre.
+
+### Les limites d'un compte gratuit, à connaître avant de commencer
+
+- **7 jours.** Le certificat expire. Passé ce délai l'application refuse de se
+  lancer, et il faut la re-signer et la réinstaller. Ce n'est pas contournable.
+- **3 applications** sideloadées simultanément, **10 identifiants** par semaine.
+- **iOS 26.0.1 est très récent.** Ces outils suivent les changements d'Apple
+  avec du retard ; il est possible que la version du jour ne fonctionne pas
+  encore. C'est le risque principal de ce chemin.
+- Le **mode développeur** doit être actif sur l'iPhone — c'est le cas.
+
+### Ce que ça débloque
+
+L'application native, donc le **Bluetooth** : c'est le seul moyen de tester le
+transport BLE entre iOS et Android, la partie du socle qu'aucun test simulé ne
+peut valider. C'est précisément le trou qui reste dans la phase 9.
+
+---
+
+## 4. Application native signée en CI — demande un compte payant
 
 **C'est ici que se situe le seul vrai blocage, et aucune astuce ne le contourne.**
 Installer une application sur un iPhone non jailbreaké exige une signature émise
