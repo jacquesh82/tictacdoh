@@ -59,20 +59,46 @@ jobs:
       - name: Compilation
         working-directory: apps/mobile/ios/App
         run: |
-          set -o pipefail
+          set -euo pipefail
           xcodebuild \
             -workspace App.xcworkspace \
             -scheme App \
-            -configuration Debug \
+            -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            build 2>&1 | xcpretty || xcodebuild \
-              -workspace App.xcworkspace -scheme App -configuration Debug \
-              -sdk iphoneos -destination 'generic/platform=iOS' \
-              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+            build
+
+      # Empaquetage non signé.
+      #
+      # Un .ipa n'est qu'un zip contenant `Payload/App.app` : le construire ne
+      # demande aucun compte Apple. C'est ce qui rend le sideload possible —
+      # la signature, elle, se pose ensuite sur la machine de l'utilisateur,
+      # avec son propre identifiant Apple, sans que le moindre secret n'ait à
+      # transiter par ce dépôt.
+      - name: Empaquetage .ipa non signé
+        working-directory: apps/mobile/ios/App
+        run: |
+          set -euo pipefail
+          APP=build/Build/Products/Release-iphoneos/App.app
+          test -d "$APP" || { echo "::error::App.app introuvable"; exit 1; }
+
+          # Une signature ad-hoc résiduelle ferait échouer la re-signature.
+          rm -rf "$APP/_CodeSignature" "$APP/embedded.mobileprovision"
+
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qry "$RUNNER_TEMP/TicTacDoh-nonsigne.ipa" Payload
+          echo "Taille : $(du -h "$RUNNER_TEMP/TicTacDoh-nonsigne.ipa" | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipa-non-signe
+          path: ${{ runner.temp }}/TicTacDoh-nonsigne.ipa
+          if-no-files-found: error
 
   ipa:
     name: Paquet signé (.ipa)
