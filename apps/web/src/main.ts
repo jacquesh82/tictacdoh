@@ -9,10 +9,15 @@ import { renderDiag } from './diag.js'
 import { renderHome } from './home.js'
 import { renderNet } from './net-view.js'
 import { DEFAULT_GAME_ID } from '@ttd/games'
+import { loadDeviceName } from './device.js'
 import { renderPlay } from './play.js'
 
 const app = document.querySelector<HTMLElement>('#app')!
 let disposeCurrent: (() => void) | undefined
+
+// Le nom système traverse le pont natif : on l'obtient une fois, tôt, pour
+// que les annonces construites plus tard n'aient pas à attendre.
+void loadDeviceName()
 
 function navigate(route: string): void {
   if (globalThis.location.hash === route) render()

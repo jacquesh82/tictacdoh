@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@capacitor/core": "^6.2.0",
+    "@capacitor/device": "^6.0.3",
     "@ttd/core": "*",
     "@ttd/game-esquive": "*",
     "@ttd/game-sdk": "*",

@@ -1,4 +1,5 @@
 import { offers } from '@ttd/games'
+import { displayName } from './device.js'
 import { LOCAL_CAPS } from '@ttd/transport-local'
 import { type RoomSummary, WsTransport } from '@ttd/transport-ws'
 import { TicketError, parseJoinInput } from '@ttd/join'
@@ -47,7 +48,9 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
         <input id="name" maxlength="24" placeholder="Ada" value="${playerName()}" />
       </div>
       <p class="muted" style="margin:0.5rem 0 0">
-        Affiché aux autres joueurs. Retenu pour la prochaine fois.
+        Affiché aux autres joueurs, et sous lequel cet appareil se rend visible
+        en Bluetooth et sur le réseau. Laissé vide, c’est le nom du téléphone
+        qui sert.
       </p>
     </section>
 
@@ -329,7 +332,7 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
 
   const search = async () => {
     roomsEl.innerHTML = `<p class="muted">Recherche…</p>`
-    const transport = new WsTransport({ url: relayUrl(), selfName: playerName() || 'Joueur' })
+    const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
     try {
       showRooms(await transport.listRooms(4000))
     } catch (error) {

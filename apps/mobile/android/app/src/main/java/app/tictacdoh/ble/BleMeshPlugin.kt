@@ -239,7 +239,7 @@ class BleMeshPlugin : Plugin() {
             // laisser un appareil s'appeler « 000000|Koko » après une partie
             // serait une trace durable qu'on n'a pas le droit de laisser.
             if (nomOrigine == null) nomOrigine = adapter?.name
-            adapter?.name = "$fingerprintHex|$localName"
+            adapter?.name = nomAnnonce(fingerprintHex, localName)
             val callback = object : AdvertiseCallback() {
                 override fun onStartFailure(errorCode: Int) {
                     call.reject("advertising refusé (code $errorCode)")
@@ -265,6 +265,28 @@ class BleMeshPlugin : Plugin() {
         gattServer = null
         restaurerNom()
         call.resolve()
+    }
+
+    /**
+     * Nom annoncé, taillé pour tenir dans la réponse au scan.
+     *
+     * Le nom complet voyage dans le *scan response*, lui aussi plafonné à
+     * 31 octets. En retirer l'en-tête laisse 29 octets, dont sept sont pris
+     * par l'empreinte et son séparateur — soit 22 octets pour le nom.
+     *
+     * On coupe en **octets et non en caractères** : « é » en coûte deux, et un
+     * nom accentué de 22 caractères ferait déborder l'annonce exactement comme
+     * le service data le faisait. On coupe sur une frontière de caractère,
+     * faute de quoi le nom arriverait coupé au milieu d'un octet et
+     * s'afficherait avec un caractère de remplacement chez le lecteur.
+     */
+    private fun nomAnnonce(fingerprintHex: String, localName: String): String {
+        val budget = 29 - fingerprintHex.toByteArray(Charsets.UTF_8).size - 1
+        var nom = localName
+        while (nom.toByteArray(Charsets.UTF_8).size > budget && nom.isNotEmpty()) {
+            nom = nom.dropLast(1)
+        }
+        return "$fingerprintHex|$nom"
     }
 
     /** Rend au téléphone son nom Bluetooth d'origine. */

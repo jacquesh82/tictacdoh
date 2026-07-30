@@ -1,4 +1,5 @@
 import type { TransportKind } from '@ttd/core'
+import { Device } from '@capacitor/device'
 import { isNative, nativePlatform } from './native.js'
 
 /**
@@ -151,4 +152,52 @@ export function setTransportEnabled(kind: TransportKind, enabled: boolean): Set<
 
 export function isTransportEnabled(kind: TransportKind): boolean {
   return enabledTransports().has(kind)
+}
+
+/**
+ * Nom sous lequel cet appareil se présente aux autres.
+ *
+ * Un seul point de vérité, quel que soit le moyen : Bluetooth, réseau local,
+ * Wi-Fi Direct ou NFC affichent tous la même chose. Sans cela, un même
+ * téléphone apparaissait « Koko » sur un canal et « Appareil » sur un autre,
+ * et rien ne permettait de comprendre qu'il s'agissait du même.
+ *
+ * Trois niveaux, du plus intentionnel au plus générique :
+ *
+ * 1. **L'alias saisi dans l'application.** C'est un choix explicite ; rien ne
+ *    doit le contredire.
+ * 2. **Le nom que l'utilisateur a donné à son téléphone** — « S24 Ultra de
+ *    jacques ». Il est déjà personnel et reconnaissable, et c'est celui que
+ *    les autres appareils affichent déjà ailleurs.
+ * 3. **Le modèle**, faute de mieux. Générique, mais toujours plus utile
+ *    qu'« Appareil ».
+ */
+let nomSysteme: string | undefined
+
+/**
+ * Interroge le système une fois pour toutes.
+ *
+ * À appeler au démarrage : la lecture traverse le pont natif, donc elle est
+ * asynchrone, alors que les endroits qui ont besoin du nom — la construction
+ * d'une annonce BLE, par exemple — ne le sont pas.
+ */
+export async function loadDeviceName(): Promise<void> {
+  if (!isNative()) return
+  try {
+    const info = await Device.getInfo()
+    // `name` est le nom donné par l'utilisateur ; il est absent sur certaines
+    // versions d'Android, d'où le repli sur le modèle.
+    nomSysteme = info.name?.trim() || [info.manufacturer, info.model].filter(Boolean).join(' ')
+  } catch {
+    // Une coquille sans le plugin ne doit pas empêcher de jouer.
+  }
+}
+
+/** Nom d'affichage, alias prioritaire. */
+export function displayName(alias?: string): string {
+  const choisi = alias?.trim()
+  if (choisi) return choisi
+  if (nomSysteme) return nomSysteme
+  const d = deviceInfo()
+  return d.runtime === 'natif' ? `Appareil ${d.platform}` : `${d.browser} sur ${d.os}`
 }

@@ -2,6 +2,7 @@ import { type DistanceEstimate, type TransportKind, estimateDistance, smoothRssi
 import { WsTransport } from '@ttd/transport-ws'
 import { relayUrl, hintDefaults } from './app-config.js'
 import { playerName } from './home.js'
+import { displayName } from './device.js'
 import { BleMesh, isNative } from './native.js'
 
 /**
@@ -118,7 +119,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
     moyens.push('réseau local')
     const pollLan = async () => {
       if (stopped) return
-      const transport = new WsTransport({ url: relayUrl(), selfName: 'diagnostic' })
+      const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
       try {
         for (const room of await transport.listRooms(4000)) {
           notePeer({
@@ -174,7 +175,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
           await BleMesh.startAdvertising({
             serviceUuid,
             fingerprintHex: DIAGNOSTIC_FINGERPRINT,
-            localName: playerName() || 'Appareil',
+            localName: displayName(playerName()),
           })
           cleanups.push(() => void BleMesh.stopAdvertising())
         } else {
