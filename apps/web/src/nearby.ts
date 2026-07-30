@@ -61,8 +61,22 @@ export interface ScanHandle {
 export interface ScanOptions {
   readonly onPeer: (peers: NearbyPeer[]) => void
   readonly onStatus: (message: string) => void
+  /**
+   * État détaillé par moyen.
+   *
+   * Une ligne d'état unique était écrasée par le message suivant : une erreur
+   * Bluetooth disparaissait dès que le relay répondait, et l'utilisateur se
+   * retrouvait devant une liste vide sans aucune trace de la cause. Chaque
+   * moyen garde donc son propre état, affiché en permanence.
+   */
+  readonly onTransportState?: (kind: TransportKind, state: TransportState) => void
   /** Moyens que l'utilisateur a laissés actifs. */
   readonly enabled: ReadonlySet<TransportKind>
+}
+
+export interface TransportState {
+  readonly ok: boolean
+  readonly message: string
 }
 
 /**
@@ -113,6 +127,8 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
   }
 
   const moyens: string[] = []
+  const etat = (kind: TransportKind, ok: boolean, message: string) =>
+    options.onTransportState?.(kind, { ok, message })
 
   // --- Réseau local, par le relay ---
   if (options.enabled.has('ws') || options.enabled.has('webrtc')) {
@@ -121,7 +137,9 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
       if (stopped) return
       const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
       try {
-        for (const room of await transport.listRooms(4000)) {
+        const salles = await transport.listRooms(4000)
+        etat('ws', true, `relay joignable · ${salles.length} salle(s) ouverte(s)`)
+        for (const room of salles) {
           notePeer({
             id: `ws:${room.code}`,
             name: room.roomName || room.hostName,
@@ -130,7 +148,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
           })
         }
       } catch (error) {
-        if (!stopped) options.onStatus(`Relay injoignable : ${(error as Error).message}`)
+        if (!stopped) etat('ws', false, `relay injoignable : ${(error as Error).message}`)
       } finally {
         await transport.close()
       }
@@ -147,7 +165,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
       try {
         const status = await BleMesh.isAvailable()
         if (!status.available) {
-          options.onStatus(`Bluetooth indisponible : ${status.reason ?? 'raison inconnue'}`)
+          etat('ble', false, status.reason ?? 'Bluetooth indisponible, raison inconnue')
           return
         }
         const listener = await BleMesh.addListener('discovered', (event) => {
@@ -178,13 +196,15 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
             localName: displayName(playerName()),
           })
           cleanups.push(() => void BleMesh.stopAdvertising())
+          etat('ble', true, `à l’écoute et visible sous « ${displayName(playerName())} »`)
         } else {
-          options.onStatus(
-            'Cet appareil sait chercher mais pas s’annoncer : il verra les autres sans être vu.',
-          )
+          etat('ble', false, 'sait chercher mais pas s’annoncer : verra sans être vu')
         }
       } catch (error) {
-        if (!stopped) options.onStatus(`Scan Bluetooth impossible : ${(error as Error).message}`)
+        // Le cas le plus instructif : un plugin non enregistré échoue ici avec
+        // « not implemented ». Sans cet affichage, l'utilisateur ne voyait
+        // qu'une liste vide, indiscernable d'une absence de voisins.
+        if (!stopped) etat('ble', false, `plugin injoignable : ${(error as Error).message}`)
       }
     })()
   }

@@ -11,5 +11,7 @@
 		"Nearby": {},
 		"NfcTicket": {}
 	},
-	"packageClassList": []
+	"packageClassList": [
+		"DevicePlugin"
+	]
 }

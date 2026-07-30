@@ -399,6 +399,11 @@ function simpleMarkup(): string {
         <button id="scan" class="primary">Chercher</button>
         <span id="scan-status" class="muted">Aucune recherche lancée.</span>
       </div>
+      <!--
+        État par moyen, affiché en permanence. Une liste vide ne dit pas si
+        personne n'est là ou si la recherche a échoué : ces lignes tranchent.
+      -->
+      <ul id="etats" class="seats" style="margin-top:0.75rem"></ul>
       <ul id="found" class="seats" style="margin-top:0.75rem"></ul>
     </section>
   `
@@ -467,7 +472,19 @@ function wireSimple(root: HTMLElement, cleanups: Array<() => void>): void {
   const scan = root.querySelector<HTMLButtonElement>('#scan')!
   const status = root.querySelector<HTMLSpanElement>('#scan-status')!
   const found = root.querySelector<HTMLUListElement>('#found')!
+  const etatsEl = root.querySelector<HTMLUListElement>('#etats')!
+  const etats = new Map<string, { ok: boolean; message: string }>()
   let handle: ScanHandle | undefined
+
+  const renderEtats = () => {
+    etatsEl.innerHTML = [...etats.entries()]
+      .map(
+        ([kind, e]) =>
+          `<li class="seat"><span class="${e.ok ? 'pill ok' : 'pill no'}">${TRANSPORT_LABELS[kind] ?? kind}</span>
+           <span class="muted" style="white-space:normal">${e.message}</span></li>`,
+      )
+      .join('')
+  }
 
   const onScan = () => {
     if (handle) {
@@ -478,9 +495,15 @@ function wireSimple(root: HTMLElement, cleanups: Array<() => void>): void {
       return
     }
     found.innerHTML = ''
+    etats.clear()
+    renderEtats()
     scan.textContent = 'Arrêter'
     handle = startNearbyScan({
       enabled: enabledTransports(),
+      onTransportState: (kind, state) => {
+        etats.set(kind, state)
+        renderEtats()
+      },
       onStatus: (message) => {
         status.textContent = message
       },
