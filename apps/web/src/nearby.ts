@@ -3,7 +3,7 @@ import { WsTransport } from '@ttd/transport-ws'
 import { relayUrl, relayUrlIsManual, hintDefaults } from './app-config.js'
 import { playerName } from './home.js'
 import { displayName } from './device.js'
-import { BleMesh, isNative } from './native.js'
+import { BleMesh, Nearby, isNative } from './native.js'
 import { setting, settingNumber } from './settings.js'
 
 /**
@@ -225,6 +225,76 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         if (!stopped) etat('ble', false, `plugin injoignable : ${(error as Error).message}`)
       }
     })()
+  }
+
+  // --- Wi-Fi Direct / Multipeer ---
+  //
+  // Rappel qui vaut d'être répété : Nearby Connections et
+  // MultipeerConnectivity **ne se parlent pas**. Ce moyen relie des appareils
+  // de même famille — deux Android, ou deux appareils Apple. Un iPhone et un
+  // Android ne se verront jamais par ce canal, quoi qu'on fasse ; c'est
+  // exactement le trou que le BLE existe pour combler.
+  if (options.enabled.has('nearby') && isNative()) {
+    moyens.push('Wi-Fi Direct')
+    void (async () => {
+      try {
+        const status = await Nearby.isAvailable()
+        if (!status.available) {
+          etat('nearby', false, status.reason ?? 'indisponible, raison inconnue')
+          return
+        }
+
+        // Identifiant de service commun aux deux bouts. Multipeer impose au
+        // plus 15 caractères en minuscules, chiffres et tirets : le préfixe
+        // réglable garde de la marge.
+        const serviceId = `${hintDefaults().nearbyPrefix}diag`.slice(0, 15)
+        const nom = displayName(playerName())
+
+        const trouve = await Nearby.addListener('endpointFound', (event) => {
+          notePeer({
+            id: `nearby:${event.endpointId}`,
+            name: event.endpointName || 'appareil sans nom',
+            via: 'nearby',
+            // Nearby ne rapporte aucune puissance de signal : pas de distance
+            // possible, et le dire vaut mieux que de laisser un vide.
+            detail: 'Wi-Fi Direct, même famille d’appareils',
+          })
+        })
+        cleanups.push(() => void trouve.remove())
+
+        const perdu = await Nearby.addListener('endpointLost', (event) => {
+          peers.delete(`nearby:${event.endpointId}`)
+          publish()
+        })
+        cleanups.push(() => void perdu.remove())
+
+        // Chercher **et** se montrer, pour la même raison qu'en Bluetooth :
+        // deux appareils qui ne feraient que chercher ne se verraient jamais.
+        await Nearby.startDiscovery({ serviceId })
+        cleanups.push(() => void Nearby.stopDiscovery())
+        await Nearby.startAdvertising({ serviceId, endpointName: nom })
+        cleanups.push(() => void Nearby.stopAdvertising())
+
+        etat('nearby', true, `à l’écoute et visible sous « ${nom} »`)
+      } catch (error) {
+        if (!stopped) etat('nearby', false, `plugin injoignable : ${(error as Error).message}`)
+      }
+    })()
+  }
+
+  // --- WebRTC ---
+  //
+  // Il n'a pas de découverte propre : c'est un moyen de *connexion*, pas de
+  // *présence*. La mise en relation passe par le relay, puis le lien devient
+  // direct. Le dire explicitement évite de croire à une panne devant un
+  // interrupteur qui ne produit aucune ligne.
+  if (options.enabled.has('webrtc')) {
+    etat(
+      'webrtc',
+      true,
+      'sert à la connexion, pas à la découverte : la mise en relation passe par le relay, ' +
+        'puis le lien devient direct',
+    )
   }
 
   options.onStatus(
