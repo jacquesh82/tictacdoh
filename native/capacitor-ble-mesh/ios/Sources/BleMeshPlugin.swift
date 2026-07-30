@@ -11,9 +11,13 @@ import Foundation
  héberger, `CBCentralManager` pour rejoindre — d'où les deux moitiés de ce
  fichier.
 
- ⚠️ NON COMPILÉ NI TESTÉ. Ni Xcode ni appareil n'étaient disponibles. Le
- contrat que ce fichier doit honorer est en revanche figé et vérifié par les
- tests de `packages/transport-ble`.
+ État de vérification, à jour : **compile** sur un runner macOS de GitHub
+ (`.github/workflows/ios.yml`) — vérifié en cassant volontairement ce fichier
+ pour s'assurer qu'il est bien dans la cible, et non ignoré silencieusement.
+ En revanche il n'a **jamais tourné sur un appareil** : il faudrait deux
+ téléphones et une application signée. Le contrat qu'il doit honorer est figé
+ et vérifié par les tests de `packages/transport-ble`, mais aucun test ne peut
+ prouver que CoreBluetooth se comporte comme attendu.
 
  Réserve importante pour la phase de mise au point sur appareil : en arrière-
  plan, iOS cesse de diffuser l'UUID de service dans l'annonce principale et le
