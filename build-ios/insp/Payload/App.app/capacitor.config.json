@@ -12,6 +12,8 @@
 		"NfcTicket": {}
 	},
 	"packageClassList": [
-		"DevicePlugin"
+		"DevicePlugin",
+		"BleMeshPlugin",
+		"NearbyPlugin"
 	]
 }
