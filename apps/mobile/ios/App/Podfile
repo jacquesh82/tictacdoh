@@ -21,6 +21,7 @@ target 'App' do
   # évite de toucher au project.pbxproj — impossible à éditer sainement sans
   # Xcode, qui n'existe pas sur la machine de développement.
   pod 'TtdBleMesh', :path => '../../../../native/capacitor-ble-mesh'
+  pod 'TtdNearby', :path => '../../../../native/capacitor-nearby'
 end
 
 post_install do |installer|

@@ -5,6 +5,7 @@ import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;
 
 import app.tictacdoh.ble.BleMeshPlugin;
+import app.tictacdoh.nearby.NearbyPlugin;
 
 /**
  * Coquille native.
@@ -17,6 +18,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(BleMeshPlugin.class);
+    registerPlugin(NearbyPlugin.class);
     super.onCreate(savedInstanceState);
   }
 }

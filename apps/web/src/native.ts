@@ -1,5 +1,6 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import type { BleMeshPlugin } from '@ttd/transport-ble'
+import type { NearbyPlugin } from '@ttd/transport-nearby'
 import type { ProbeResult } from '@ttd/transport-select'
 
 /**
@@ -10,6 +11,15 @@ import type { ProbeResult } from '@ttd/transport-select'
  * même code de tourner dans un navigateur et dans la coquille native.
  */
 export const BleMesh = registerPlugin<BleMeshPlugin>('BleMesh')
+
+/**
+ * Transport « à proximité ».
+ *
+ * Un seul mandataire pour deux technologies qui ne se parlent pas : Nearby
+ * Connections sur Android, MultipeerConnectivity sur iOS. Le TypeScript ne fait
+ * pas la différence — c'est tout l'intérêt du contrat.
+ */
+export const Nearby = registerPlugin<NearbyPlugin>('Nearby')
 
 export function isNative(): boolean {
   return Capacitor.isNativePlatform()

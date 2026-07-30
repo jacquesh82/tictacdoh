@@ -45,6 +45,24 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+
+    <!--
+        Nearby Connections. Il monte du Wi-Fi Direct sous le capot, d'où des
+        permissions qui n'ont rien de bluetooth. Leur absence ne lève aucune
+        erreur : la découverte ne rend simplement jamais de résultat — le pire
+        des symptômes, puisque rien ne distingue « mal configuré » de
+        « personne à proximité ».
+    -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
+    <!-- Android 13+ : remplace la localisation pour la découverte d'appareils. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation" />
+    <!-- Antérieur à Android 12, où les permissions BLUETOOTH_* n'existaient pas. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
 
 </manifest>

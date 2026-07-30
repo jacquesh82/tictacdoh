@@ -63,10 +63,15 @@
 	<string>Pour héberger une partie et rester visible des joueurs à proximité.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pour trouver et rejoindre les parties ouvertes sur votre réseau Wi-Fi.</string>
+	<!--
+		MultipeerConnectivity exige de déclarer les services Bonjour qu'il
+		utilise. Sans cette liste, iOS 14+ bloque la découverte sans erreur
+		visible : aucun pair n'apparaît, et rien n'explique pourquoi.
+	-->
 	<key>NSBonjourServices</key>
 	<array>
-		<string>_tictacdoh._tcp</string>
-		<string>_tictacdoh._udp</string>
+		<string>_ttd._tcp</string>
+		<string>_ttd._udp</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Pour scanner le QR code d’invitation d’une partie.</string>
