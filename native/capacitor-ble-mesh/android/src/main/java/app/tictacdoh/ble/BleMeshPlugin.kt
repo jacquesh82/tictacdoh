@@ -50,6 +50,9 @@ import java.util.UUID
 )
 class BleMeshPlugin : Plugin() {
 
+    /** Nom Bluetooth du téléphone avant qu'on ne le détourne pour l'annonce. */
+    private var nomOrigine: String? = null
+
     companion object {
         /** Caractéristique écrite par le central, lue par le périphérique. */
         private val RX_UUID: UUID = UUID.fromString("7ac0d0a1-0001-4000-8000-00805f9b34fb")
@@ -187,7 +190,18 @@ class BleMeshPlugin : Plugin() {
         advertiseCallback = null
         gattServer?.close()
         gattServer = null
+        restaurerNom()
         call.resolve()
+    }
+
+    /** Rend au téléphone son nom Bluetooth d'origine. */
+    private fun restaurerNom() {
+        val origine = nomOrigine ?: return
+        nomOrigine = null
+        try {
+            adapter?.name = origine
+        } catch (_: SecurityException) {
+        }
     }
 
     @PluginMethod
@@ -387,6 +401,17 @@ class BleMeshPlugin : Plugin() {
             }
         }
     }
+
+    override fun handleOnDestroy() {
+        // Une application tuée en pleine annonce laisserait le téléphone
+        // rebaptisé, et son adaptateur en train d'émettre pour personne.
+        try {
+            advertiseCallback?.let { adapter?.bluetoothLeAdvertiser?.stopAdvertising(it) }
+        } catch (_: SecurityException) {
+        }
+        restaurerNom()
+    }
+
 }
 
 private fun String.hexToBytes(): ByteArray =

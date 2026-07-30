@@ -65,6 +65,9 @@ import java.util.UUID
 )
 class BleMeshPlugin : Plugin() {
 
+    /** Nom Bluetooth du téléphone avant qu'on ne le détourne pour l'annonce. */
+    private var nomOrigine: String? = null
+
     companion object {
         /** Caractéristique écrite par le central, lue par le périphérique. */
         private val RX_UUID: UUID = UUID.fromString("7ac0d0a1-0001-4000-8000-00805f9b34fb")
@@ -211,21 +214,31 @@ class BleMeshPlugin : Plugin() {
             // code entier : on n'émet que son empreinte sur trois octets, et le
             // code complet est vérifié après connexion.
             //
-            // L'empreinte est émise **deux fois**, en service data et dans le nom.
-            // Ce n'est pas de la redondance gratuite : CoreBluetooth ne sait pas
-            // émettre de service data, si bien qu'un hôte iPhone ne peut la placer
-            // que dans son nom. Un Android qui ne lirait que le service data ne
-            // verrait jamais un hôte iOS — et c'est précisément le chemin que le
-            // BLE existe pour couvrir.
+            // Budget : une annonce héritée tient dans **31 octets**, drapeaux
+            // compris. Un UUID de service 128 bits en coûte déjà 18, et un
+            // service data sur ce même UUID 21 de plus — la charge atteignait
+            // 42 octets et l'annonce était refusée (`ADVERTISE_FAILED_DATA_TOO
+            // _LARGE`, constaté sur Galaxy S24).
+            //
+            // Le service data disparaît donc, et l'empreinte ne voyage plus que
+            // dans le nom. Ce n'est pas une perte : CoreBluetooth ne sait pas
+            // émettre de service data, si bien qu'un hôte iPhone n'a jamais eu
+            // que le nom à sa disposition. Les deux plateformes utilisent
+            // désormais le même canal, ce qui supprime aussi un cas de figure
+            // asymétrique difficile à tester.
             val data = AdvertiseData.Builder()
                 .setIncludeDeviceName(false)
                 .addServiceUuid(ParcelUuid(serviceUuid))
-                .addServiceData(ParcelUuid(serviceUuid), fingerprintHex.hexToBytes())
                 .build()
             val scanResponse = AdvertiseData.Builder()
                 .setIncludeDeviceName(true)
                 .build()
 
+            // Renommer l'adaptateur touche le nom Bluetooth *du téléphone*,
+            // visible de tous et persistant. On le mémorise pour le rendre :
+            // laisser un appareil s'appeler « 000000|Koko » après une partie
+            // serait une trace durable qu'on n'a pas le droit de laisser.
+            if (nomOrigine == null) nomOrigine = adapter?.name
             adapter?.name = "$fingerprintHex|$localName"
             val callback = object : AdvertiseCallback() {
                 override fun onStartFailure(errorCode: Int) {
@@ -250,7 +263,18 @@ class BleMeshPlugin : Plugin() {
         advertiseCallback = null
         gattServer?.close()
         gattServer = null
+        restaurerNom()
         call.resolve()
+    }
+
+    /** Rend au téléphone son nom Bluetooth d'origine. */
+    private fun restaurerNom() {
+        val origine = nomOrigine ?: return
+        nomOrigine = null
+        try {
+            adapter?.name = origine
+        } catch (_: SecurityException) {
+        }
     }
 
     @PluginMethod
@@ -466,6 +490,17 @@ class BleMeshPlugin : Plugin() {
             }
         }
     }
+
+    override fun handleOnDestroy() {
+        // Une application tuée en pleine annonce laisserait le téléphone
+        // rebaptisé, et son adaptateur en train d'émettre pour personne.
+        try {
+            advertiseCallback?.let { adapter?.bluetoothLeAdvertiser?.stopAdvertising(it) }
+        } catch (_: SecurityException) {
+        }
+        restaurerNom()
+    }
+
 }
 
 private fun String.hexToBytes(): ByteArray =
