@@ -64,6 +64,15 @@ export interface NearbyEvents {
   connected: NearbyConnectedEvent
   disconnected: NearbyDisconnectedEvent
   received: NearbyReceivedEvent
+  /**
+   * La radio a refusé de démarrer.
+   *
+   * Distinct d'un rejet de promesse : sur iOS, `startBrowsingForPeers` rend la
+   * main immédiatement et n'échoue qu'ensuite, par le délégué. Sans cet
+   * événement, une autorisation « réseau local » refusée était **totalement
+   * silencieuse** — l'application croyait chercher.
+   */
+  unavailable: { readonly reason: string }
 }
 
 export interface NearbyPluginListener {

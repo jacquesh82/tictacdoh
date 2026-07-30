@@ -68,6 +68,7 @@ export class FakeNearbyPlugin implements NearbyPlugin {
     connected: new Set(),
     disconnected: new Set(),
     received: new Set(),
+    unavailable: new Set(),
   }
 
   readonly #peers = new Map<string, FakeNearbyPlugin>()

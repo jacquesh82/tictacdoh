@@ -229,9 +229,25 @@ extension NearbyPlugin: MCNearbyServiceAdvertiserDelegate {
         _ advertiser: MCNearbyServiceAdvertiser,
         didNotStartAdvertisingPeer error: Error
     ) {
-        notifyListeners(
-            "disconnected",
-            data: ["endpointId": "", "reason": error.localizedDescription])
+        // Un échec d'annonce n'est pas une déconnexion : le signaler comme tel
+        // le noyait parmi les départs de pairs, et l'interface n'en montrait
+        // rien.
+        notifyListeners("unavailable", data: ["reason": raison(error)])
+    }
+
+    /**
+     Message exploitable à partir d'une erreur Multipeer.
+
+     La cause de loin la plus fréquente est le refus de l'autorisation « réseau
+     local », qu'iOS ne permet pas d'interroger — on ne peut que la constater à
+     l'échec. Le dire évite de chercher une panne de radio.
+     */
+    private func raison(_ error: Error) -> String {
+        let ns = error as NSError
+        if ns.domain == NSPOSIXErrorDomain || ns.code == -72008 {
+            return "autorisation « réseau local » refusée : Réglages → TicTacDoh → Réseau local"
+        }
+        return error.localizedDescription
     }
 }
 
@@ -246,6 +262,16 @@ extension NearbyPlugin: MCNearbyServiceBrowserDelegate {
         let id = peerID.displayName
         found[id] = peerID
         notifyListeners("endpointFound", data: ["endpointId": id, "endpointName": id])
+    }
+
+    public func browser(
+        _ browser: MCNearbyServiceBrowser,
+        didNotStartBrowsingForPeers error: Error
+    ) {
+        // Ce rappel manquait : `startBrowsingForPeers` rend la main tout de
+        // suite et n'échoue qu'ici. Sans lui, une recherche impossible passait
+        // pour une recherche sans résultat.
+        notifyListeners("unavailable", data: ["reason": raison(error)])
     }
 
     public func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {

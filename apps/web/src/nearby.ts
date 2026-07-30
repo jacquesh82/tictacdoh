@@ -276,6 +276,13 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         })
         cleanups.push(() => void perdu.remove())
 
+        // La radio peut refuser de démarrer après coup : sur iOS l'appel rend
+        // la main immédiatement et n'échoue qu'ensuite.
+        const panne = await Nearby.addListener('unavailable', (event) => {
+          etat('nearby', false, event.reason)
+        })
+        cleanups.push(() => void panne.remove())
+
         // Chercher **et** se montrer, pour la même raison qu'en Bluetooth :
         // deux appareils qui ne feraient que chercher ne se verraient jamais.
         await Nearby.startDiscovery({ serviceId })
