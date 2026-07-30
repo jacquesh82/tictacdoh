@@ -14,6 +14,71 @@ import {
   selectTransport,
 } from '@ttd/transport-select'
 import { capabilities, supportPill } from './capabilities.js'
+import { relayUrl, setRelayUrl, relayUrlIsManual } from './app-config.js'
+import {
+  ALL_TRANSPORTS,
+  deviceInfo,
+  enabledTransports,
+  setTransportEnabled,
+} from './device.js'
+import { type NearbyPeer, type ScanHandle, startNearbyScan } from './nearby.js'
+
+/** Nom lisible d'un transport, pour les interrupteurs. */
+const TRANSPORT_LABELS: Record<string, string> = {
+  local: 'Même appareil',
+  ws: 'Internet (relay)',
+  webrtc: 'Pair à pair (WebRTC)',
+  ble: 'Bluetooth',
+  nearby: 'Wi-Fi Direct / Multipeer',
+}
+
+/** Carte d'identité de l'appareil. */
+function deviceCard(): string {
+  const d = deviceInfo()
+  const ligne = (k: string, v: string) => `<div class="stat"><span>${k}</span><b>${v}</b></div>`
+  return [
+    ligne('Type', `${d.formFactor} · ${d.runtime}`),
+    ligne('Système', d.os),
+    ligne('Moteur', d.runtime === 'natif' ? `coquille ${d.platform}` : d.browser),
+    ligne('Écran', `${d.screen} · ×${d.pixelRatio}`),
+    ligne('Tactile', d.touch ? 'oui' : 'non'),
+    ligne('Origine sécurisée', d.secureContext ? 'oui' : 'non — caméra et QR indisponibles'),
+    d.cores ? ligne('Cœurs', String(d.cores)) : '',
+  ].join('')
+}
+
+/** Interrupteurs par moyen de communication. */
+function transportToggles(): string {
+  const actifs = enabledTransports()
+  const dispo = new Map(capabilities().map((row) => [row.kind, row]))
+  return ALL_TRANSPORTS.map((kind) => {
+    const row = dispo.get(kind)
+    const supporte = row ? row.join !== 'non' : true
+    const coche = actifs.has(kind) ? 'checked' : ''
+    const note = supporte ? '' : ' — indisponible sur cet appareil'
+    return `<label class="switch">
+      <input type="checkbox" data-transport="${kind}" ${coche} />
+      <span><b>${TRANSPORT_LABELS[kind] ?? kind}</b><span class="muted">${note}</span></span>
+    </label>`
+  }).join('')
+}
+
+/** Une ligne de la liste des appareils à proximité. */
+function peerRow(peer: NearbyPeer): string {
+  const d = peer.distance
+  const distance = d
+    ? `<b>${d.label}</b> <span class="muted">≈ ${d.meters.toFixed(1)} m (${d.min.toFixed(1)}–${d.max.toFixed(1)}, confiance ${d.confidence})</span>`
+    : `<span class="muted">distance inconnue par ce moyen</span>`
+  const signal = peer.rssi !== undefined ? ` · ${Math.round(peer.rssi)} dBm` : ''
+  return `<li class="seat" style="align-items:flex-start">
+    <span class="dot" style="background:var(--accent)"></span>
+    <span>
+      <b>${peer.name}</b> <span class="pill warn">${peer.via}${signal}</span>
+      <div class="muted">${peer.detail ?? ''}</div>
+      <div>${distance}</div>
+    </span>
+  </li>`
+}
 
 /**
  * Sonde les transports depuis ce navigateur.
@@ -67,7 +132,7 @@ function browserCandidates(): TransportCandidate[] {
   ]
 }
 
-const RELAY_URL = import.meta.env['VITE_RELAY_URL'] ?? 'ws://localhost:8787'
+
 
 /**
  * Sonde le relay en ouvrant réellement une WebSocket.
@@ -86,9 +151,9 @@ function probeRelay(timeoutMs = 3000): Promise<ProbeResult> {
     const started = performance.now()
     let socket: WebSocket
     try {
-      socket = new WebSocket(RELAY_URL)
+      socket = new WebSocket(relayUrl())
     } catch {
-      resolve({ reachable: false, reason: `adresse de relay invalide (${RELAY_URL})` })
+      resolve({ reachable: false, reason: `adresse de relay invalide (${relayUrl()})` })
       return
     }
     const finish = (result: ProbeResult) => {
@@ -272,7 +337,31 @@ export function renderDiag(root: HTMLElement): () => void {
     <p class="lede">Ce que cet appareil sait faire, et ce que valent les liens disponibles.</p>
 
     <section class="card" style="margin-bottom:1rem">
-      <h2>Capacités de cet appareil</h2>
+      <h2>Cet appareil</h2>
+      ${deviceCard()}
+    </section>
+
+    <section class="card" style="margin-bottom:1rem">
+      <h2>Moyens de communication</h2>
+      <p class="muted" style="margin:0 0 0.75rem">
+        Ce que vous autorisez. Distinct de ce que l’appareil sait faire : couper
+        un moyen disponible sert à vérifier que le repli fonctionne.
+      </p>
+      <div id="toggles">${transportToggles()}</div>
+      <h2 style="margin-top:1.25rem">Adresse du relay</h2>
+      <p class="muted" style="margin:0 0 0.5rem">
+        Vide = déduite de l’adresse du site. À renseigner dans l’application
+        installée, où « localhost » désigne le téléphone lui-même.
+      </p>
+      <div class="row">
+        <input id="relay" placeholder="ws://192.168.1.10:8787" value="${relayUrlIsManual() ? relayUrl() : ''}" />
+        <button id="relay-save">Enregistrer</button>
+      </div>
+      <p class="muted" id="relay-note" style="margin:0.5rem 0 0">Utilisée : ${relayUrl()}</p>
+    </section>
+
+    <section class="card" style="margin-bottom:1rem">
+      <h2>Capacités détaillées</h2>
       ${capabilityTable()}
       <p class="muted" style="margin:0.75rem 0 0">
         Détecté à partir des API réellement présentes, pas d’une reconnaissance de navigateur.
@@ -294,7 +383,12 @@ export function renderDiag(root: HTMLElement): () => void {
     </section>
 
     <section class="card" style="margin-bottom:1rem">
-      <h2>Hôtes à proximité</h2>
+      <h2>À proximité</h2>
+      <p class="muted" style="margin:0 0 0.75rem">
+        La distance n’est estimée que par Bluetooth, à partir de la puissance
+        reçue. Elle donne un ordre de grandeur, pas une mesure : un corps entre
+        les deux appareils suffit à la doubler.
+      </p>
       <div class="row">
         <button id="scan" class="primary">Chercher</button>
         <span id="scan-status" class="muted">Aucune recherche lancée.</span>
@@ -333,29 +427,60 @@ export function renderDiag(root: HTMLElement): () => void {
       .join('')
   })
 
+  // --- Interrupteurs de transport ---
+  for (const box of root.querySelectorAll<HTMLInputElement>('[data-transport]')) {
+    box.addEventListener('change', () => {
+      const kind = box.dataset['transport'] as Parameters<typeof setTransportEnabled>[0]
+      const actifs = setTransportEnabled(kind, box.checked)
+      // Relire l'état plutôt que de faire confiance à la case : couper le
+      // dernier moyen est refusé, et la case doit refléter ce refus.
+      box.checked = actifs.has(kind)
+    })
+  }
+
+  // --- Adresse du relay ---
+  const relayInput = root.querySelector<HTMLInputElement>('#relay')!
+  const relayNote = root.querySelector<HTMLElement>('#relay-note')!
+  root.querySelector<HTMLButtonElement>('#relay-save')!.addEventListener('click', () => {
+    setRelayUrl(relayInput.value)
+    relayNote.textContent = `Utilisée : ${relayUrl()}`
+  })
+
+  // --- Découverte ---
   const scan = root.querySelector<HTMLButtonElement>('#scan')!
   const status = root.querySelector<HTMLSpanElement>('#scan-status')!
   const found = root.querySelector<HTMLUListElement>('#found')!
+  let handle: ScanHandle | undefined
 
   const onScan = () => {
-    const usable = capabilities().filter((row) => row.join !== 'non' && row.kind !== 'local')
-    found.innerHTML = ''
-    if (usable.length === 0) {
-      status.textContent = 'Aucun transport de découverte disponible sur cet appareil.'
+    if (handle) {
+      handle.stop()
+      handle = undefined
+      scan.textContent = 'Chercher'
+      status.textContent = 'Recherche arrêtée.'
       return
     }
-    // La découverte réelle arrive avec les transports des phases 7 à 9. On dit
-    // ce qui sera interrogé plutôt que d'afficher une liste vide sans
-    // explication — un « rien trouvé » muet est indiscernable d'une panne.
-    status.textContent = `Interrogera ${usable.map((row) => row.label).join(', ')}.`
-    found.innerHTML = usable
-      .map(
-        (row) =>
-          `<li class="seat"><span class="dot" style="background:var(--muted)"></span>${row.label} — en attente du transport</li>`,
-      )
-      .join('')
+    found.innerHTML = ''
+    scan.textContent = 'Arrêter'
+    handle = startNearbyScan({
+      enabled: enabledTransports(),
+      onStatus: (message) => {
+        status.textContent = message
+      },
+      onPeer: (peers) => {
+        // Une liste vide sans explication est indiscernable d'une panne : on
+        // dit qu'on cherche toujours plutôt que de ne rien afficher.
+        found.innerHTML =
+          peers.length > 0
+            ? peers.map(peerRow).join('')
+            : `<li class="muted">Personne pour l’instant. La découverte Bluetooth prend plusieurs secondes.</li>`
+      },
+    })
   }
 
   scan.addEventListener('click', onScan)
-  return () => scan.removeEventListener('click', onScan)
+  return () => {
+    handle?.stop()
+    scan.removeEventListener('click', onScan)
+  }
 }

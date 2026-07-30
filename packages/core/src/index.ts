@@ -29,3 +29,12 @@ export {
   type NetcodeOptions,
   type TickInputs,
 } from './netcode.js'
+export {
+  type DistanceEstimate,
+  type DistanceOptions,
+  type DistanceConfidence,
+  estimateDistance,
+  smoothRssi,
+  TX_POWER_AT_ONE_METER,
+  PATH_LOSS_EXPONENT,
+} from './distance.js'

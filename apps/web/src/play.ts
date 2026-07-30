@@ -4,7 +4,7 @@ import { resolveGame } from '@ttd/games'
 import { LocalTransport } from '@ttd/transport-local'
 import { createTicket, generateCode } from '@ttd/join'
 import { Rng } from '@ttd/core'
-import { HINT_DEFAULTS, WEB_ORIGIN } from './app-config.js'
+import { hintDefaults, WEB_ORIGIN } from './app-config.js'
 import { applyFieldAspect, attachLocalInputs, drawGame, seatColor } from './game-view.js'
 import { renderTicket } from './qr.js'
 
@@ -179,7 +179,7 @@ export function renderPlay(root: HTMLElement, options: PlayOptions): () => void 
   openSheet.addEventListener('click', () => toggleSheet(true))
   closeSheet.addEventListener('click', () => toggleSheet(false))
 
-  void renderTicket(root.querySelector<HTMLElement>('#qr')!, ticket, WEB_ORIGIN, HINT_DEFAULTS)
+  void renderTicket(root.querySelector<HTMLElement>('#qr')!, ticket, WEB_ORIGIN, hintDefaults())
 
   applyFieldAspect(canvas, plugin)
   // La scène entière, et non le terrain : voir `attachLocalInputs`.

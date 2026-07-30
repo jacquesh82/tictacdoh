@@ -4,7 +4,7 @@ import { type RoomSummary, WsTransport } from '@ttd/transport-ws'
 import { TicketError, parseJoinInput } from '@ttd/join'
 import { capabilities, supportPill } from './capabilities.js'
 import { type Scanner, scanSupport, startScan } from './scanner.js'
-import { RELAY_URL } from './net.js'
+import { relayUrl } from './app-config.js'
 
 const NAME_KEY = 'ttd.playerName'
 
@@ -273,7 +273,7 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
 
   const search = async () => {
     roomsEl.innerHTML = `<p class="muted">Recherche…</p>`
-    const transport = new WsTransport({ url: RELAY_URL, selfName: playerName() || 'Joueur' })
+    const transport = new WsTransport({ url: relayUrl(), selfName: playerName() || 'Joueur' })
     try {
       showRooms(await transport.listRooms(4000))
     } catch (error) {

@@ -545,3 +545,19 @@ body.playing main {
     display: none;
   }
 }
+
+/* Interrupteurs de la page de diagnostic.
+   Une étiquette englobante plutôt qu'une case isolée : la zone cliquable
+   couvre alors tout le libellé, ce qui compte au doigt sur un téléphone. */
+.switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.switch:last-child { border-bottom: 0; }
+.switch input { width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; flex: none; }
+.switch span { display: flex; flex-direction: column; gap: 0.15rem; }
+.switch .muted { font-size: 0.85em; }

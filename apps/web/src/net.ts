@@ -2,7 +2,7 @@ import { type Link, Rng, Session, seedFrom } from '@ttd/core'
 import { createTicket, generateCode, type JoinTicket } from '@ttd/join'
 import { WsTransport } from '@ttd/transport-ws'
 import { WebRtcTransport } from '@ttd/transport-webrtc'
-import { HINT_DEFAULTS } from './app-config.js'
+import { relayUrl } from './app-config.js'
 
 export interface NetRoom {
   readonly session: Session
@@ -167,4 +167,11 @@ export async function joinRoom(
   }
 }
 
-export const RELAY_URL = HINT_DEFAULTS.relayUrl
+/**
+ * Adresse du relay au moment de l'appel.
+ *
+ * Une fonction et non une constante : elle était figée au chargement du
+ * module, donc changer l'adresse dans les réglages n'avait aucun effet tant
+ * que l'application n'était pas relancée.
+ */
+export const RELAY_URL = (): string => relayUrl()

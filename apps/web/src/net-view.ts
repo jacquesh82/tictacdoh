@@ -2,7 +2,7 @@ import { Netcode, type Session } from '@ttd/core'
 import { type GamePlugin, GameRuntime, Scoreboard } from '@ttd/game-sdk'
 import { CATALOGUE, DEFAULT_GAME_ID, type GameOffer, gameById, offers, resolveGame } from '@ttd/games'
 import { seedFrom } from '@ttd/core'
-import { WEB_ORIGIN, HINT_DEFAULTS } from './app-config.js'
+import { WEB_ORIGIN, hintDefaults } from './app-config.js'
 import { applyFieldAspect, attachLocalInputs, drawGame, seatColor } from './game-view.js'
 import { playerName } from './home.js'
 import { RELAY_URL, hostRoom, joinRoom, type NetRoom } from './net.js'
@@ -442,7 +442,7 @@ export function renderNet(
 
   const boot = async () => {
     if (mode === 'host') {
-      const room: NetRoom = await hostRoom(RELAY_URL, playerName() || 'Hôte', roomName)
+      const room: NetRoom = await hostRoom(RELAY_URL(), playerName() || 'Hôte', roomName)
       disposeRoom = room.dispose
       closeRoom = room.closeRoom
       session = room.session
@@ -451,7 +451,7 @@ export function renderNet(
       const invite = root.querySelector<HTMLElement>('#invite')!
       invite.hidden = false
       root.querySelector<HTMLElement>('#code')!.textContent = room.code
-      void renderTicket(root.querySelector<HTMLElement>('#qr')!, room.ticket, WEB_ORIGIN, HINT_DEFAULTS)
+      void renderTicket(root.querySelector<HTMLElement>('#qr')!, room.ticket, WEB_ORIGIN, hintDefaults())
 
       const waitingInvite = root.querySelector<HTMLElement>('#waiting-invite')!
       waitingInvite.hidden = false
@@ -460,7 +460,7 @@ export function renderNet(
         root.querySelector<HTMLElement>('#waiting-qr')!,
         room.ticket,
         WEB_ORIGIN,
-        HINT_DEFAULTS,
+        hintDefaults(),
       )
       session.on('peer-joined', () => {
         linkKind = [...room.linkKinds.values()].join(', ') || '—'
@@ -472,7 +472,7 @@ export function renderNet(
 
     if (!code) throw new Error('code manquant')
     const joined = await joinRoom(
-      RELAY_URL,
+      RELAY_URL(),
       code,
       playerName() || `Invité ${Math.floor(Math.random() * 90 + 10)}`,
     )
