@@ -94,10 +94,38 @@ export function relayAdvice(message: string): string {
   const url = relayUrl()
   const loopback = /\/\/(localhost|127\.0\.0\.1|\[?::1\]?)[:/]/.test(url)
   const natif = globalThis.location?.protocol === 'capacitor:' || isNativeShell()
+
   if (natif && loopback && !relayUrlIsManual()) {
     return `${url} désigne cet appareil. Renseignez l’adresse du serveur dans Diagnostic → Configuration.`
   }
+
+  // Un `wss://` qui échoue vers une adresse privée est, dans l'immense
+  // majorité des cas, un certificat non reconnu — aucune autorité publique
+  // n'en émet pour une IP privée. On ne peut pas le confirmer depuis le
+  // JavaScript : les navigateurs masquent délibérément la cause d'un échec
+  // TLS, et c'est aussi ce qui interdit de proposer d'accepter le certificat
+  // depuis l'application. Le dire comme une hypothèse probable, avec le geste
+  // qui la lève, vaut mieux que de laisser chercher.
+  if (url.startsWith('wss://') && isPrivateHost(url)) {
+    return (
+      `${message} — relay visé : ${url}. Cause probable : certificat non reconnu. ` +
+      `L’autorité doit être installée dans les réglages du système ` +
+      `(voir docs/relay-tls.md) ; une application ne peut pas accorder cette confiance à votre place.`
+    )
+  }
+
   return `${message} — relay visé : ${url}`
+}
+
+/** L'adresse vise-t-elle une machine du réseau local ? */
+function isPrivateHost(url: string): boolean {
+  const hote = /^wss?:\/\/([^:/]+)/.exec(url)?.[1] ?? ''
+  return (
+    /^10\./.test(hote) ||
+    /^192\.168\./.test(hote) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hote) ||
+    hote.endsWith('.local')
+  )
 }
 
 /**
