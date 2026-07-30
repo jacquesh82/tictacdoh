@@ -52,7 +52,7 @@ function render(): void {
   }
 
   if (hash.startsWith('#/diag')) {
-    disposeCurrent = renderDiag(app)
+    disposeCurrent = renderDiag(app, hash === '#/diag/detail' ? 'detail' : 'simple')
     return
   }
 

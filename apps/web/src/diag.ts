@@ -331,10 +331,84 @@ function profileCard(probe: ReturnType<typeof probeProfile>): string {
   </section>`
 }
 
-export function renderDiag(root: HTMLElement): () => void {
-  root.innerHTML = `
-    <h1>Diagnostic réseau</h1>
+/**
+ * Vue affichée.
+ *
+ * Deux publics distincts, d'où deux écrans. « Simple » répond à la question du
+ * joueur — avec qui puis-je jouer, et par quel moyen. « Détaillé » répond à
+ * celle du développeur — pourquoi ce moyen a été retenu, et ce qu'il vaut.
+ * Tout mélanger noyait le premier sous les mesures du second.
+ */
+export type DiagView = 'simple' | 'detail'
+
+/** Barre d'onglets. La route suit, pour qu'un rechargement retombe ici. */
+function tabs(view: DiagView): string {
+  const onglet = (cible: DiagView, libelle: string, route: string) =>
+    `<a href="${route}"><button class="${view === cible ? 'primary' : ''}">${libelle}</button></a>`
+  return `<div class="row" style="margin-bottom:1rem">
+    ${onglet('simple', 'Essentiel', '#/diag')}
+    ${onglet('detail', 'Détaillé', '#/diag/detail')}
+  </div>`
+}
+
+/** Résumé d'appareil en une ligne, pour l'écran simple. */
+function deviceSummary(): string {
+  const d = deviceInfo()
+  const moteur = d.runtime === 'natif' ? `application ${d.platform}` : d.browser
+  return `<p class="lede" style="margin:0">
+    ${d.formFactor} · ${d.os} · ${moteur}
+  </p>`
+}
+
+export function renderDiag(root: HTMLElement, view: DiagView = 'simple'): () => void {
+  root.innerHTML =
+    view === 'simple' ? simpleMarkup() : detailMarkup()
+
+  const cleanups: Array<() => void> = []
+  if (view === 'simple') wireSimple(root, cleanups)
+  else wireDetail(root, cleanups)
+
+  return () => {
+    for (const fn of cleanups) fn()
+  }
+}
+
+function simpleMarkup(): string {
+  return `
+    <h1>Diagnostic</h1>
+    ${deviceSummary()}
+    ${tabs('simple')}
+
+    <section class="card" style="margin-bottom:1rem">
+      <h2>Moyens de communication</h2>
+      <p class="muted" style="margin:0 0 0.75rem">
+        Ce que vous autorisez pour jouer. Couper un moyen disponible sert à
+        vérifier que le repli fonctionne.
+      </p>
+      <div id="toggles">${transportToggles()}</div>
+    </section>
+
+    <section class="card">
+      <h2>Appareils à proximité</h2>
+      <p class="muted" style="margin:0 0 0.75rem">
+        La distance n’est estimée que par Bluetooth, à partir de la puissance
+        reçue. C’est un ordre de grandeur, pas une mesure : un corps entre les
+        deux appareils suffit à la doubler.
+      </p>
+      <div class="row">
+        <button id="scan" class="primary">Chercher</button>
+        <span id="scan-status" class="muted">Aucune recherche lancée.</span>
+      </div>
+      <ul id="found" class="seats" style="margin-top:0.75rem"></ul>
+    </section>
+  `
+}
+
+function detailMarkup(): string {
+  return `
+    <h1>Diagnostic détaillé</h1>
     <p class="lede">Ce que cet appareil sait faire, et ce que valent les liens disponibles.</p>
+    ${tabs('detail')}
 
     <section class="card" style="margin-bottom:1rem">
       <h2>Cet appareil</h2>
@@ -342,16 +416,11 @@ export function renderDiag(root: HTMLElement): () => void {
     </section>
 
     <section class="card" style="margin-bottom:1rem">
-      <h2>Moyens de communication</h2>
-      <p class="muted" style="margin:0 0 0.75rem">
-        Ce que vous autorisez. Distinct de ce que l’appareil sait faire : couper
-        un moyen disponible sert à vérifier que le repli fonctionne.
-      </p>
-      <div id="toggles">${transportToggles()}</div>
-      <h2 style="margin-top:1.25rem">Adresse du relay</h2>
+      <h2>Adresse du relay</h2>
       <p class="muted" style="margin:0 0 0.5rem">
         Vide = déduite de l’adresse du site. À renseigner dans l’application
-        installée, où « localhost » désigne le téléphone lui-même.
+        installée, où « localhost » désigne le téléphone lui-même et non le
+        serveur.
       </p>
       <div class="row">
         <input id="relay" placeholder="ws://192.168.1.10:8787" value="${relayUrlIsManual() ? relayUrl() : ''}" />
@@ -372,28 +441,14 @@ export function renderDiag(root: HTMLElement): () => void {
       <h2>Moyen de communication retenu</h2>
       <p class="muted" style="margin:0 0 0.75rem">
         Chaque transport est sondé, pas seulement déclaré. Le hors-ligne prime :
-        un lien qui ne dépend de personne vaut mieux qu'un lien rapide qui dépend
-        d'un serveur.
+        un lien qui ne dépend de personne vaut mieux qu’un lien rapide qui dépend
+        d’un serveur.
       </p>
       <p id="pick"><span class="muted">Sondage en cours…</span></p>
       <div class="scroll-x"><table id="ranking">
         <thead><tr><th>Transport</th><th>État</th><th>Pourquoi</th></tr></thead>
         <tbody></tbody>
       </table></div>
-    </section>
-
-    <section class="card" style="margin-bottom:1rem">
-      <h2>À proximité</h2>
-      <p class="muted" style="margin:0 0 0.75rem">
-        La distance n’est estimée que par Bluetooth, à partir de la puissance
-        reçue. Elle donne un ordre de grandeur, pas une mesure : un corps entre
-        les deux appareils suffit à la doubler.
-      </p>
-      <div class="row">
-        <button id="scan" class="primary">Chercher</button>
-        <span id="scan-status" class="muted">Aucune recherche lancée.</span>
-      </div>
-      <ul id="found" class="seats" style="margin-top:0.75rem"></ul>
     </section>
 
     <h2>Qualité des liens</h2>
@@ -403,50 +458,12 @@ export function renderDiag(root: HTMLElement): () => void {
     </p>
     <div id="probes" class="grid"></div>
   `
+}
 
-  const probes = root.querySelector<HTMLDivElement>('#probes')!
-  const names: ProfileName[] = ['ble', 'wifi', '4g', 'lossy']
-  probes.innerHTML = names.map((name) => profileCard(probeProfile(name))).join('')
+/** Écran simple : interrupteurs et découverte. */
+function wireSimple(root: HTMLElement, cleanups: Array<() => void>): void {
+  wireToggles(root)
 
-  void selectTransport(browserCandidates(), { game: esquive.meta }).then((selection) => {
-    const pick = root.querySelector<HTMLElement>('#pick')
-    const body = root.querySelector<HTMLTableSectionElement>('#ranking tbody')
-    if (!pick || !body) return
-    pick.textContent = explainSelection(selection)
-    body.innerHTML = selection.all
-      .map((entry) => {
-        const chosen = entry.kind === selection.chosen?.kind
-        const pill = chosen ? 'pill ok' : entry.usable ? 'pill warn' : 'pill no'
-        const label = chosen ? 'retenu' : entry.usable ? 'repli' : 'écarté'
-        return `<tr>
-          <td><b>${entry.kind}</b></td>
-          <td><span class="${pill}">${label}</span></td>
-          <td class="muted" style="white-space:normal">${entry.reason}</td>
-        </tr>`
-      })
-      .join('')
-  })
-
-  // --- Interrupteurs de transport ---
-  for (const box of root.querySelectorAll<HTMLInputElement>('[data-transport]')) {
-    box.addEventListener('change', () => {
-      const kind = box.dataset['transport'] as Parameters<typeof setTransportEnabled>[0]
-      const actifs = setTransportEnabled(kind, box.checked)
-      // Relire l'état plutôt que de faire confiance à la case : couper le
-      // dernier moyen est refusé, et la case doit refléter ce refus.
-      box.checked = actifs.has(kind)
-    })
-  }
-
-  // --- Adresse du relay ---
-  const relayInput = root.querySelector<HTMLInputElement>('#relay')!
-  const relayNote = root.querySelector<HTMLElement>('#relay-note')!
-  root.querySelector<HTMLButtonElement>('#relay-save')!.addEventListener('click', () => {
-    setRelayUrl(relayInput.value)
-    relayNote.textContent = `Utilisée : ${relayUrl()}`
-  })
-
-  // --- Découverte ---
   const scan = root.querySelector<HTMLButtonElement>('#scan')!
   const status = root.querySelector<HTMLSpanElement>('#scan-status')!
   const found = root.querySelector<HTMLUListElement>('#found')!
@@ -479,8 +496,56 @@ export function renderDiag(root: HTMLElement): () => void {
   }
 
   scan.addEventListener('click', onScan)
-  return () => {
+  cleanups.push(() => {
     handle?.stop()
     scan.removeEventListener('click', onScan)
+  })
+}
+
+/** Écran détaillé : réglages, capacités, sondages. */
+function wireDetail(root: HTMLElement, _cleanups: Array<() => void>): void {
+  const probes = root.querySelector<HTMLDivElement>('#probes')!
+  const names: ProfileName[] = ['ble', 'wifi', '4g', 'lossy']
+  probes.innerHTML = names.map((name) => profileCard(probeProfile(name))).join('')
+
+  const relayInput = root.querySelector<HTMLInputElement>('#relay')!
+  const relayNote = root.querySelector<HTMLElement>('#relay-note')!
+  root.querySelector<HTMLButtonElement>('#relay-save')!.addEventListener('click', () => {
+    setRelayUrl(relayInput.value)
+    relayNote.textContent = `Utilisée : ${relayUrl()}`
+  })
+
+  void selectTransport(browserCandidates(), { game: esquive.meta }).then((selection) => {
+    const pick = root.querySelector<HTMLElement>('#pick')
+    const body = root.querySelector<HTMLTableSectionElement>('#ranking tbody')
+    // La vue a pu changer pendant le sondage : sans ce garde, on écrirait dans
+    // un écran qui n'existe plus.
+    if (!pick || !body) return
+    pick.textContent = explainSelection(selection)
+    body.innerHTML = selection.all
+      .map((entry) => {
+        const chosen = entry.kind === selection.chosen?.kind
+        const pill = chosen ? 'pill ok' : entry.usable ? 'pill warn' : 'pill no'
+        const label = chosen ? 'retenu' : entry.usable ? 'repli' : 'écarté'
+        return `<tr>
+          <td><b>${entry.kind}</b></td>
+          <td><span class="${pill}">${label}</span></td>
+          <td class="muted" style="white-space:normal">${entry.reason}</td>
+        </tr>`
+      })
+      .join('')
+  })
+}
+
+/** Commun aux deux écrans tant que les interrupteurs y figurent. */
+function wireToggles(root: HTMLElement): void {
+  for (const box of root.querySelectorAll<HTMLInputElement>('[data-transport]')) {
+    box.addEventListener('change', () => {
+      const kind = box.dataset['transport'] as Parameters<typeof setTransportEnabled>[0]
+      const actifs = setTransportEnabled(kind, box.checked)
+      // Relire l'état plutôt que de faire confiance à la case : couper le
+      // dernier moyen est refusé, et la case doit refléter ce refus.
+      box.checked = actifs.has(kind)
+    })
   }
 }
