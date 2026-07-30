@@ -1,0 +1,13 @@
+{
+  "name": "@ttd/capacitor-nfc",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Plugin Capacitor : appairage NFC. Android présente et lit, iOS ne sait que lire.",
+  "main": "index.js",
+  "files": ["ios/", "TtdCapacitorNfc.podspec"],
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

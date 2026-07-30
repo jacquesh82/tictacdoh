@@ -15,7 +15,8 @@
     "@capacitor/device": "^6.0.3",
     "@capacitor/ios": "^6.2.0",
     "@ttd/capacitor-ble-mesh": "file:../../native/capacitor-ble-mesh",
-    "@ttd/capacitor-nearby": "file:../../native/capacitor-nearby"
+    "@ttd/capacitor-nearby": "file:../../native/capacitor-nearby",
+    "@ttd/capacitor-nfc": "file:../../native/capacitor-nfc"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.2.0"

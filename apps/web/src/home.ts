@@ -257,11 +257,18 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
   let nfcActif = false
 
   if (pairing) {
-    void pairing.availability().then((dispo) => {
-      if (disposed) return
-      nfcButton.hidden = !dispo.available
-      if (!dispo.available && dispo.reason) nfcNote.textContent = dispo.reason
-    })
+    void pairing
+      .availability()
+      .then((dispo) => {
+        if (disposed) return
+        nfcButton.hidden = !dispo.available
+        if (!dispo.available && dispo.reason) nfcNote.textContent = dispo.reason
+      })
+      .catch(() => {
+        // Plateforme sans plugin NFC : le bouton reste caché. Sans ce
+        // rattrapage, le rejet remontait en erreur non gérée.
+        if (!disposed) nfcButton.hidden = true
+      })
   }
 
   const stopNfc = () => {

@@ -73,6 +73,15 @@
 		<string>_ttd._tcp</string>
 		<string>_ttd._udp</string>
 	</array>
+	<!--
+		Lecture NFC. La chaîne d'usage suffit ; l'autorisation applicative
+		« Near Field Communication Tag Reading » n'est volontairement PAS
+		déclarée : un compte développeur gratuit n'y a pas droit, et l'ajouter
+		ferait échouer la signature de toute l'application pour une fonction
+		secondaire.
+	-->
+	<key>NFCReaderUsageDescription</key>
+	<string>Pour lire le ticket d’invitation d’une partie approchée.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Pour scanner le QR code d’invitation d’une partie.</string>
 </dict>
