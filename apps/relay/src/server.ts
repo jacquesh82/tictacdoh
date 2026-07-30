@@ -1,4 +1,5 @@
-import { createServer, type Server } from 'node:http'
+import { createServer, type RequestListener, type Server } from 'node:http'
+import { createServer as createSecureServer } from 'node:https'
 import { WebSocketServer, type WebSocket } from 'ws'
 import {
   type ClientMessage,
@@ -11,7 +12,14 @@ import {
   withSlot,
 } from './protocol.js'
 
+export interface TlsMaterial {
+  readonly cert: string | Buffer
+  readonly key: string | Buffer
+}
+
 export interface RelayOptions {
+  /** Certificat et clé. Absent = `ws://` en clair. */
+  readonly tls?: TlsMaterial
   readonly port?: number
   /** Places invitées par salle. Une de moins que le nombre de joueurs. */
   readonly maxGuests?: number
@@ -64,6 +72,9 @@ export class RelayServer {
   readonly #roomOf = new WeakMap<WebSocket, { room: Room; slot: Slot }>()
   readonly #failures = new Map<string, { count: number; resetAtMs: number }>()
 
+  /** Vrai si le serveur parle `wss://`. Sert au message de démarrage. */
+  readonly secure: boolean
+
   readonly #maxGuests: number
   readonly #roomTtlMs: number
   readonly #maxFailedJoins: number
@@ -78,10 +89,41 @@ export class RelayServer {
     this.#rateWindowMs = options.rateWindowMs ?? 60_000
     this.#now = options.now ?? (() => Date.now())
 
-    this.#http = createServer((_req, res) => {
+    /**
+     * Page d'état, utile pour vérifier qu'on tape la bonne adresse depuis un
+     * téléphone : le navigateur affiche quelque chose, là où une socket qui
+     * échoue ne dit rien.
+     */
+    const onRequest: RequestListener = (_req, res) => {
       res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' })
       res.end(`tictacdoh relay — ${this.#rooms.size} salle(s)\n`)
-    })
+    }
+
+    /**
+     * TLS, si un certificat est fourni.
+     *
+     * Optionnel et non imposé, parce que le chiffrement d'un relay de réseau
+     * local est plus délicat qu'il n'y paraît : un certificat pour une adresse
+     * IP privée ne peut venir d'aucune autorité publique, il faut donc en créer
+     * une soi-même et l'installer sur **chaque** appareil. Sur iOS cela demande
+     * en plus d'activer la confiance totale dans les réglages.
+     *
+     * Le socle offre donc les deux : `ws://` sur le réseau local, où le trafic
+     * ne quitte pas la maison et où iOS l'autorise explicitement via
+     * `NSAllowsLocalNetworking` ; `wss://` dès que le relay est exposé, où le
+     * clair serait indéfendable — et où un certificat public devient possible
+     * puisqu'il y a un nom de domaine.
+     */
+    if (options.tls) {
+      this.secure = true
+      this.#http = createSecureServer(
+        { cert: options.tls.cert, key: options.tls.key },
+        onRequest,
+      ) as unknown as Server
+    } else {
+      this.secure = false
+      this.#http = createServer(onRequest)
+    }
     this.#wss = new WebSocketServer({ server: this.#http })
     this.#wss.on('connection', (socket, request) => {
       // `x-forwarded-for` d'abord : derrière un reverse proxy, l'adresse de la
