@@ -74,8 +74,25 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, CBPeripheralManagerDele
     private var wantedFingerprint: String?
     private var pendingConnect: [String: CAPPluginCall] = [:]
 
+    /// Appels `isAvailable` en attente que CoreBluetooth annonce son état.
+    private var pendingAvailability: [CAPPluginCall] = []
+
     // MARK: - Disponibilité
 
+    /**
+     Disponibilité réelle du Bluetooth.
+
+     **L'état de CoreBluetooth est asynchrone.** Juste après la création d'un
+     `CBCentralManager`, `state` vaut `.unknown` : le système ne le renseigne
+     qu'au premier appel de `centralManagerDidUpdateState`. Répondre tout de
+     suite revenait donc à répondre « indisponible » à tous les coups —
+     constaté sur iPhone SE, où l'application n'a jamais atteint la radio et où
+     le journal ne montrait pas même de demande d'autorisation.
+
+     L'appel est donc mis en attente jusqu'à ce que l'état soit connu. Un
+     garde-temps le libère si rien ne vient, plutôt que de laisser l'interface
+     figée sur « recherche en cours » indéfiniment.
+     */
     @objc func isAvailable(_ call: CAPPluginCall) {
         if peripheralManager == nil {
             peripheralManager = CBPeripheralManager(delegate: self, queue: nil)
@@ -83,13 +100,67 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, CBPeripheralManagerDele
         if centralManager == nil {
             centralManager = CBCentralManager(delegate: self, queue: nil)
         }
-        let poweredOn = centralManager?.state == .poweredOn
+
+        // L'état est déjà connu : les appels suivants passent par ici.
+        if let state = centralManager?.state, state != .unknown, state != .resetting {
+            resolveAvailability(call)
+            return
+        }
+
+        pendingAvailability.append(call)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [weak self] in
+            // Sans ce garde-temps, un Bluetooth qui ne répond pas laisserait la
+            // promesse JavaScript pendante pour toujours.
+            self?.flushAvailability()
+        }
+    }
+
+    private func flushAvailability() {
+        let calls = pendingAvailability
+        pendingAvailability = []
+        for call in calls { resolveAvailability(call) }
+    }
+
+    private func resolveAvailability(_ call: CAPPluginCall) {
+        let state = centralManager?.state ?? .unknown
+        let poweredOn = state == .poweredOn
         call.resolve([
             "available": poweredOn,
             // Contrairement au navigateur, iOS sait s'annoncer.
             "canAdvertise": poweredOn,
-            "reason": poweredOn ? "" : "Bluetooth éteint ou non autorisé",
+            "reason": poweredOn ? "" : raison(for: state),
         ])
+    }
+
+    /// Message utile plutôt qu'un « indisponible » qui n'apprend rien.
+    private func raison(for state: CBManagerState) -> String {
+        switch state {
+        case .poweredOff: return "Bluetooth éteint"
+        case .unauthorized: return "autorisation Bluetooth refusée pour cette application"
+        case .unsupported: return "cet appareil ne gère pas le Bluetooth basse énergie"
+        case .resetting: return "la pile Bluetooth redémarre"
+        case .unknown: return "état du Bluetooth inconnu — réessayez"
+        @unknown default: return "état du Bluetooth inattendu"
+        }
+    }
+
+    /**
+     Nom annoncé, taillé pour le budget d'annonce.
+
+     Même contrainte que sur Android : le nom voyage dans la réponse au scan,
+     plafonnée à 31 octets. iOS ne refuse pas quand ça déborde — il **tronque
+     en silence**, ce qui est pire : l'empreinte survit puisqu'elle est en tête,
+     mais le nom arrive amputé sans que rien ne le signale.
+
+     On coupe donc nous-mêmes, en octets et sur une frontière de caractère.
+     */
+    private func nomAnnonce(_ fingerprint: String, _ localName: String) -> String {
+        let budget = 29 - fingerprint.utf8.count - 1
+        var nom = localName
+        while nom.utf8.count > budget && !nom.isEmpty {
+            nom.removeLast()
+        }
+        return "\(fingerprint)|\(nom)"
     }
 
     // MARK: - Périphérique (hôte)
@@ -128,7 +199,7 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, CBPeripheralManagerDele
         let fingerprint = call.getString("fingerprintHex") ?? ""
         peripheralManager?.startAdvertising([
             CBAdvertisementDataServiceUUIDsKey: [service],
-            CBAdvertisementDataLocalNameKey: "\(fingerprint)|\(localName)",
+            CBAdvertisementDataLocalNameKey: nomAnnonce(fingerprint, localName),
         ])
         call.resolve()
     }
@@ -139,7 +210,11 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, CBPeripheralManagerDele
         call.resolve()
     }
 
-    public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {}
+    public func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        // Le rôle périphérique a son propre cycle d'état ; on s'en sert pour
+        // débloquer aussi les appels en attente, au cas où le central tarderait.
+        flushAvailability()
+    }
 
     public func peripheralManager(
         _ peripheral: CBPeripheralManager,
@@ -209,7 +284,10 @@ public class BleMeshPlugin: CAPPlugin, CAPBridgedPlugin, CBPeripheralManagerDele
         call.resolve()
     }
 
-    public func centralManagerDidUpdateState(_ central: CBCentralManager) {}
+    public func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        // C'est ici, et seulement ici, que l'état devient exploitable.
+        flushAvailability()
+    }
 
     public func centralManager(
         _ central: CBCentralManager,
