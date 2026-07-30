@@ -5,7 +5,11 @@ import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
+import android.os.Build
+import com.getcapacitor.PermissionState
 import com.getcapacitor.annotation.CapacitorPlugin
+import com.getcapacitor.annotation.Permission
+import com.getcapacitor.annotation.PermissionCallback
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -31,8 +35,44 @@ import com.google.android.gms.nearby.connection.Strategy
  * ⚠️ NON COMPILÉ NI TESTÉ. Aucun SDK Android ni appareil n'était disponible.
  * Le contrat honoré ici est figé par les tests de `packages/transport-nearby`.
  */
-@CapacitorPlugin(name = "Nearby")
+/**
+ * Permissions de Nearby Connections.
+ *
+ * Elles ne sont **pas** que du Bluetooth : Nearby monte du Wi-Fi Direct sous
+ * le capot, d'où `NEARBY_WIFI_DEVICES`. Sans elle, la découverte échoue sur
+ * l'obscur code 8029 (`MISSING_PERMISSION_NEARBY_WIFI_DEVICES`) — constaté sur
+ * Galaxy S24.
+ *
+ * Lesquelles sont réellement requises dépend de la version d'Android, et c'est
+ * là que ça se complique : `NEARBY_WIFI_DEVICES` n'existe qu'à partir
+ * d'Android 13, les `BLUETOOTH_*` qu'à partir d'Android 12, et avant cela
+ * c'est la localisation précise qui faisait office de garde-fou. Demander une
+ * permission inapplicable la fait rendre « refusée », ce qui bloquerait sur les
+ * versions anciennes. On ne demande donc que ce qui vaut pour cet appareil.
+ */
+@CapacitorPlugin(
+    name = "Nearby",
+    permissions = [
+        Permission(strings = [android.Manifest.permission.BLUETOOTH_SCAN], alias = "btScan"),
+        Permission(strings = [android.Manifest.permission.BLUETOOTH_ADVERTISE], alias = "btAdvertise"),
+        Permission(strings = [android.Manifest.permission.BLUETOOTH_CONNECT], alias = "btConnect"),
+        Permission(strings = [android.Manifest.permission.NEARBY_WIFI_DEVICES], alias = "wifiNearby"),
+        Permission(strings = [android.Manifest.permission.ACCESS_FINE_LOCATION], alias = "location"),
+    ],
+)
 class NearbyPlugin : Plugin() {
+
+    /** Alias réellement requis sur cette version d'Android. */
+    private fun aliasRequis(): Array<String> = when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ->
+            arrayOf("btScan", "btAdvertise", "btConnect", "wifiNearby")
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            arrayOf("btScan", "btAdvertise", "btConnect", "location")
+        else -> arrayOf("location")
+    }
+
+    private fun permissionsManquantes(): List<String> =
+        aliasRequis().filter { getPermissionState(it) != PermissionState.GRANTED }
 
     private val client by lazy { Nearby.getConnectionsClient(context) }
 
@@ -41,6 +81,33 @@ class NearbyPlugin : Plugin() {
 
     @PluginMethod
     fun isAvailable(call: PluginCall) {
+        val manquantes = permissionsManquantes()
+        if (manquantes.isNotEmpty()) {
+            requestPermissionForAliases(manquantes.toTypedArray(), call, "onNearbyPermissions")
+            return
+        }
+        respondAvailability(call)
+    }
+
+    /** Retour de la demande de permissions. */
+    @PermissionCallback
+    private fun onNearbyPermissions(call: PluginCall) {
+        val manquantes = permissionsManquantes()
+        if (manquantes.isEmpty()) {
+            respondAvailability(call)
+        } else {
+            // Un refus est une réponse, pas une panne : la rendre proprement
+            // permet à l'interface d'expliquer au lieu d'échouer plus tard sur
+            // un code numérique.
+            call.resolve(
+                JSObject()
+                    .put("available", false)
+                    .put("reason", "permissions refusées : ${manquantes.joinToString(", ")}"),
+            )
+        }
+    }
+
+    private fun respondAvailability(call: PluginCall) {
         // Nearby Connections repose sur les services Google Play : absents des
         // appareils sans GMS, où ce transport ne fonctionnera jamais. Mieux
         // vaut le dire que d'échouer à la première connexion.
@@ -55,6 +122,11 @@ class NearbyPlugin : Plugin() {
 
     @PluginMethod
     fun startAdvertising(call: PluginCall) {
+        val manquantes = permissionsManquantes()
+        if (manquantes.isNotEmpty()) {
+            call.reject("permissions requises non accordées : ${manquantes.joinToString(", ")}")
+            return
+        }
         val serviceId = call.getString("serviceId") ?: return call.reject("serviceId manquant")
         val endpointName = call.getString("endpointName") ?: return call.reject("endpointName manquant")
         localEndpointName = endpointName
@@ -78,6 +150,11 @@ class NearbyPlugin : Plugin() {
 
     @PluginMethod
     fun startDiscovery(call: PluginCall) {
+        val manquantes = permissionsManquantes()
+        if (manquantes.isNotEmpty()) {
+            call.reject("permissions requises non accordées : ${manquantes.joinToString(", ")}")
+            return
+        }
         val serviceId = call.getString("serviceId") ?: return call.reject("serviceId manquant")
         client
             .startDiscovery(
