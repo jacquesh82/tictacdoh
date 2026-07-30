@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Déclaration de l'émulation de carte.
+
+    Le système lit ce fichier pour savoir quelles applications router vers
+    notre service. `requireDeviceUnlock` est faux : présenter un ticket de
+    partie n'a rien de sensible, et exiger le déverrouillage rendrait le geste
+    « approcher les deux téléphones » nettement moins fluide.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/app_name"
+    android:requireDeviceUnlock="false">
+    <aid-group
+        android:description="@string/app_name"
+        android:category="other">
+        <!-- Identifiant normalisé de l'application NDEF du NFC Forum. -->
+        <aid-filter android:name="D2760000850101" />
+    </aid-group>
+</host-apdu-service>

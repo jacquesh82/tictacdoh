@@ -94,13 +94,17 @@ export function capabilities(): CapabilityRow[] {
     {
       kind: 'nfc',
       label: 'NFC',
-      host: 'non',
-      join: hasNfcRead ? 'partiel' : 'non',
-      // Le plugin NFC n'est pas écrit : l'annoncer disponible en natif serait
-      // une promesse fausse, même si la plateforme le permettrait.
-      note: hasNfcRead
-        ? 'Lecture de tags seulement. Présenter un ticket demande l’application Android.'
-        : 'Web NFC absent. Le plugin natif reste à écrire.',
+      // Présenter exige d'émuler une carte : Android sait, iOS jamais —
+      // l'émulation y est réservée à Apple Pay.
+      host: natif && plateforme === 'android' ? 'oui' : 'non',
+      join: natif ? 'oui' : hasNfcRead ? 'partiel' : 'non',
+      note: natif
+        ? plateforme === 'android'
+          ? 'Présente le ticket par émulation de carte, et lit les tags.'
+          : 'iOS sait lire un ticket, jamais en présenter un.'
+        : hasNfcRead
+          ? 'Lecture de tags seulement. Présenter un ticket demande l’application Android.'
+          : 'Web NFC absent. Disponible dans l’application mobile.',
     },
   ]
 }

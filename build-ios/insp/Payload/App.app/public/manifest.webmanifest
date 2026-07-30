@@ -1,0 +1,15 @@
+{
+  "name": "TicTacDoh",
+  "short_name": "TicTacDoh",
+  "description": "Mini-jeux à 1 à 4 joueurs, sur le même appareil ou en réseau.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#141a24",
+  "theme_color": "#141a24",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

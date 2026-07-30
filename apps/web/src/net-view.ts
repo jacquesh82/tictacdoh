@@ -7,6 +7,8 @@ import { applyFieldAspect, attachLocalInputs, drawGame, seatColor } from './game
 import { playerName } from './home.js'
 import { RELAY_URL, hostRoom, joinRoom, type NetRoom } from './net.js'
 import { renderTicket } from './qr.js'
+import { NfcPairing } from '@ttd/nfc'
+import { Nfc, isNative } from './native.js'
 
 /** Terrain plein écran, informations en surimpression. */
 const SHELL = (title: string) => `
@@ -81,6 +83,12 @@ const SHELL = (title: string) => `
       <div id="waiting-invite" hidden style="margin-top:1rem">
         <div class="code" id="waiting-code"></div>
         <div id="waiting-qr"></div>
+        <!--
+          Le NFC ne remplace pas le QR, il le double : approcher deux
+          téléphones est plus rapide que viser avec une caméra. Mais seul un
+          Android sait présenter, d'où un bouton qui n'apparaît pas partout.
+        -->
+        <p id="nfc-state" class="muted" style="margin:0.5rem 0 0"></p>
       </div>
       <div class="row" style="margin-top:1rem">
         <button id="waiting-start" class="primary">Lancer la manche</button>
@@ -137,6 +145,8 @@ export function renderNet(
   const nextRound = root.querySelector<HTMLButtonElement>('#next-round')!
   const gameList = root.querySelector<HTMLElement>('#game-list')!
   const gamePitch = root.querySelector<HTMLElement>('#game-pitch')!
+  const nfcState = root.querySelector<HTMLElement>('#nfc-state')!
+  let pairing: NfcPairing | undefined
   const scoreboard = new Scoreboard()
   const panel = root.querySelector<HTMLElement>('#panel')!
   root.querySelector<HTMLButtonElement>('#show-panel')!.addEventListener('click', () => {
@@ -453,6 +463,22 @@ export function renderNet(
       root.querySelector<HTMLElement>('#code')!.textContent = room.code
       void renderTicket(root.querySelector<HTMLElement>('#qr')!, room.ticket, WEB_ORIGIN, hintDefaults())
 
+      // Présenter le ticket en NFC pendant toute la vie de la salle : c'est
+      // passif, sans coût, et ça évite au joueur d'avoir à y penser.
+      if (isNative()) {
+        pairing = new NfcPairing(Nfc)
+        void pairing
+          .present(room.ticket, WEB_ORIGIN)
+          .then(() => {
+            nfcState.textContent = 'Ticket présenté en NFC : approchez un téléphone.'
+          })
+          .catch((error: Error) => {
+            // Un iPhone tombe ici, et c'est normal : le dire évite de croire
+            // à une panne.
+            nfcState.textContent = error.message
+          })
+      }
+
       const waitingInvite = root.querySelector<HTMLElement>('#waiting-invite')!
       waitingInvite.hidden = false
       root.querySelector<HTMLElement>('#waiting-code')!.textContent = room.code
@@ -535,6 +561,9 @@ export function renderNet(
     unwatch?.()
     running?.runtime.dispose()
     pending?.dispose()
+    // Sans cela, la puce continuerait de présenter le ticket d'une salle
+    // fermée : un joueur qui approche son téléphone rejoindrait le néant.
+    void pairing?.dispose()
     void disposeRoom?.()
   }
 }

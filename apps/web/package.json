@@ -17,6 +17,7 @@
     "@ttd/games": "*",
     "@ttd/join": "*",
     "@ttd/netsim": "*",
+    "@ttd/nfc": "*",
     "@ttd/transport-ble": "*",
     "@ttd/transport-local": "*",
     "@ttd/transport-nearby": "*",

@@ -1,0 +1,14 @@
+{
+  "name": "@ttd/nfc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Appairage par NFC : présentation d'un ticket via HCE, lecture de tags.",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ttd/join": "*"
+  }
+}

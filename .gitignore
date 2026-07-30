@@ -21,3 +21,10 @@ apps/mobile/android/local.properties
 *.p12
 *.mobileprovision
 *.cer
+
+# Surcharges locales de Vite. `.env.local` est fait pour ne pas etre suivi :
+# il contenait l'adresse IP d'un reseau precis, gravee dans chaque build et
+# publiee dans un depot public. L'adresse du relay se regle desormais depuis
+# l'application, ce qui rend ce fichier optionnel.
+.env.local
+.env.*.local

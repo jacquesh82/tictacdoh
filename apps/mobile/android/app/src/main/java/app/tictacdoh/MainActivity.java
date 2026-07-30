@@ -6,6 +6,7 @@ import com.getcapacitor.BridgeActivity;
 
 import app.tictacdoh.ble.BleMeshPlugin;
 import app.tictacdoh.nearby.NearbyPlugin;
+import app.tictacdoh.nfc.NfcPlugin;
 
 /**
  * Coquille native.
@@ -19,6 +20,7 @@ public class MainActivity extends BridgeActivity {
   public void onCreate(Bundle savedInstanceState) {
     registerPlugin(BleMeshPlugin.class);
     registerPlugin(NearbyPlugin.class);
+    registerPlugin(NfcPlugin.class);
     super.onCreate(savedInstanceState);
   }
 }

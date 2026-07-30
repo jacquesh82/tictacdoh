@@ -4,6 +4,8 @@ import { type RoomSummary, WsTransport } from '@ttd/transport-ws'
 import { TicketError, parseJoinInput } from '@ttd/join'
 import { capabilities, supportPill } from './capabilities.js'
 import { type Scanner, scanSupport, startScan } from './scanner.js'
+import { NfcPairing } from '@ttd/nfc'
+import { Nfc, isNative } from './native.js'
 import { relayUrl } from './app-config.js'
 
 const NAME_KEY = 'ttd.playerName'
@@ -87,7 +89,9 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
         <h2 style="margin-top:1.25rem">Rejoindre</h2>
         <div class="row">
           <button id="scan" class="primary">Scanner un QR</button>
+          <button id="nfc" hidden>Approcher un téléphone</button>
         </div>
+        <p id="nfc-note" class="muted" style="margin:0.5rem 0 0"></p>
         <p id="scan-note" class="muted" style="margin:0.5rem 0 0.75rem"></p>
         <div class="row">
           <input id="join-input" inputmode="numeric" placeholder="048213 ou lien" />
@@ -238,6 +242,58 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
 
   on(root.querySelector('#scan-close')!, 'click', closeScan)
 
+  // --- Appairage NFC ---
+  //
+  // Le bouton n'apparaît que si la puce répond vraiment. L'afficher partout
+  // puis échouer serait pire que de ne rien proposer : l'utilisateur croirait
+  // à une panne alors que son appareil n'a simplement pas de NFC.
+  const nfcButton = root.querySelector<HTMLButtonElement>('#nfc')!
+  const nfcNote = root.querySelector<HTMLElement>('#nfc-note')!
+  const pairing = isNative() ? new NfcPairing(Nfc) : undefined
+  let nfcActif = false
+
+  if (pairing) {
+    void pairing.availability().then((dispo) => {
+      if (disposed) return
+      nfcButton.hidden = !dispo.available
+      if (!dispo.available && dispo.reason) nfcNote.textContent = dispo.reason
+    })
+  }
+
+  const stopNfc = () => {
+    nfcActif = false
+    nfcButton.textContent = 'Approcher un téléphone'
+    void pairing?.stopReading().catch(() => undefined)
+  }
+
+  on(nfcButton, 'click', () => {
+    if (!pairing) return
+    if (nfcActif) {
+      stopNfc()
+      nfcNote.textContent = ''
+      return
+    }
+    setPlayerName(nameInput.value)
+    nfcActif = true
+    nfcButton.textContent = 'Arrêter'
+    nfcNote.textContent = 'Approchez le dos des deux téléphones.'
+    void pairing
+      .read({
+        promptMessage: 'Approchez le téléphone de l’hôte',
+        onTicket: (ticket) => {
+          stopNfc()
+          navigate(`#/join/${ticket.code}`)
+        },
+        onError: (message) => {
+          nfcNote.textContent = message
+        },
+      })
+      .catch((error: Error) => {
+        stopNfc()
+        nfcNote.textContent = error.message
+      })
+  })
+
   let disposed = false
 
   const showRooms = (rooms: RoomSummary[]) => {
@@ -290,6 +346,7 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
 
   return () => {
     disposed = true
+    void pairing?.dispose()
     closeScan()
     for (const off of listeners) off()
   }

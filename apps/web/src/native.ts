@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 import type { BleMeshPlugin } from '@ttd/transport-ble'
 import type { NearbyPlugin } from '@ttd/transport-nearby'
+import type { NfcPlugin } from '@ttd/nfc'
 import type { ProbeResult } from '@ttd/transport-select'
 
 /**
@@ -20,6 +21,14 @@ export const BleMesh = registerPlugin<BleMeshPlugin>('BleMesh')
  * pas la différence — c'est tout l'intérêt du contrat.
  */
 export const Nearby = registerPlugin<NearbyPlugin>('Nearby')
+
+/**
+ * Appairage NFC.
+ *
+ * Asymétrique par nature : Android présente et lit, iOS ne sait que lire.
+ * Le mandataire existe des deux côtés ; c'est `isAvailable` qui tranche.
+ */
+export const Nfc = registerPlugin<NfcPlugin>('Nfc')
 
 export function isNative(): boolean {
   return Capacitor.isNativePlatform()
