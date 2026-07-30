@@ -1,5 +1,6 @@
 import { offers } from '@ttd/games'
 import { displayName } from './device.js'
+import { settingNumber } from './settings.js'
 import { LOCAL_CAPS } from '@ttd/transport-local'
 import { type RoomSummary, WsTransport } from '@ttd/transport-ws'
 import { TicketError, parseJoinInput } from '@ttd/join'
@@ -334,7 +335,7 @@ export function renderHome(root: HTMLElement, navigate: (route: string) => void)
     roomsEl.innerHTML = `<p class="muted">Recherche…</p>`
     const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
     try {
-      showRooms(await transport.listRooms(4000))
+      showRooms(await transport.listRooms(settingNumber('roomListTimeoutMs')))
     } catch (error) {
       if (!disposed) {
         roomsEl.innerHTML = `<p class="error">Recherche impossible : ${(error as Error).message}</p>`

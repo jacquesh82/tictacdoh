@@ -1,7 +1,5 @@
 import type { HintDefaults } from '@ttd/join'
-
-const RELAY_KEY = 'ttd.relayUrl'
-const RELAY_PORT = 8787
+import { setSetting, setting, settingNumber } from './settings.js'
 
 /**
  * Adresse du relay, en trois temps.
@@ -23,7 +21,7 @@ const RELAY_PORT = 8787
  *    vaut que pour le développement sur poste.
  */
 export function relayUrl(): string {
-  const choisi = globalThis.localStorage?.getItem(RELAY_KEY)?.trim()
+  const choisi = setting('relayUrl').trim()
   if (choisi) return choisi
 
   const origine = globalThis.location
@@ -31,10 +29,10 @@ export function relayUrl(): string {
     // `wss` si la page est en `https` : un navigateur refuse une socket en
     // clair depuis une page sécurisée, et l'échec est muet.
     const scheme = origine.protocol === 'https:' ? 'wss' : 'ws'
-    return `${scheme}://${origine.hostname}:${RELAY_PORT}`
+    return `${scheme}://${origine.hostname}:${settingNumber('relayPort')}`
   }
 
-  return import.meta.env['VITE_RELAY_URL'] ?? `ws://localhost:${RELAY_PORT}`
+  return import.meta.env['VITE_RELAY_URL'] ?? `ws://localhost:${settingNumber('relayPort')}`
 }
 
 function isLoopback(hostname: string): boolean {
@@ -43,14 +41,12 @@ function isLoopback(hostname: string): boolean {
 
 /** Enregistre l'adresse choisie. Une chaîne vide rétablit la détection. */
 export function setRelayUrl(url: string): void {
-  const clean = url.trim()
-  if (clean) globalThis.localStorage?.setItem(RELAY_KEY, clean)
-  else globalThis.localStorage?.removeItem(RELAY_KEY)
+  setSetting('relayUrl', url)
 }
 
 /** L'adresse a-t-elle été fixée à la main ? Sert à l'afficher comme telle. */
 export function relayUrlIsManual(): boolean {
-  return Boolean(globalThis.localStorage?.getItem(RELAY_KEY)?.trim())
+  return setting('relayUrl').trim() !== ''
 }
 
 /**
@@ -67,10 +63,20 @@ export function relayUrlIsManual(): boolean {
 export function hintDefaults(): HintDefaults {
   return {
     relayUrl: relayUrl(),
-    // UUID de service BLE propre à l'application, tiré de la plage 128 bits.
-    bleServiceUuid: '7ac0d0a1-0000-4000-8000-00805f9b34fb',
-    nearbyPrefix: 'ttd-',
+    bleServiceUuid: setting('bleServiceUuid'),
+    nearbyPrefix: setting('nearbyPrefix'),
   }
 }
 
-export const WEB_ORIGIN = globalThis.location?.origin ?? 'https://tictacdoh.app'
+/**
+ * Origine des liens d'invitation.
+ *
+ * Une fonction et non une constante : figée au chargement, elle ignorait un
+ * changement de réglage jusqu'au redémarrage de l'application.
+ */
+export function webOrigin(): string {
+  return globalThis.location?.origin ?? setting('webOrigin')
+}
+
+/** @deprecated Utiliser `webOrigin()`, qui relit le réglage à chaque appel. */
+export const WEB_ORIGIN = webOrigin()

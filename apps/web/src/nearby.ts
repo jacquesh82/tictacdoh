@@ -4,6 +4,7 @@ import { relayUrl, relayUrlIsManual, hintDefaults } from './app-config.js'
 import { playerName } from './home.js'
 import { displayName } from './device.js'
 import { BleMesh, isNative } from './native.js'
+import { setting, settingNumber } from './settings.js'
 
 /**
  * Découverte des appareils à portée, tous moyens confondus.
@@ -34,14 +35,6 @@ import { BleMesh, isNative } from './native.js'
  * que personne ne pourrait rejoindre.
  */
 
-/**
- * Empreinte des annonces de diagnostic.
- *
- * Une vraie partie annonce l'empreinte de son code court, ce qui permet de
- * filtrer. Ici on veut être vu de tous, d'où une valeur réservée que le
- * parcours de connexion n'utilisera jamais.
- */
-const DIAGNOSTIC_FINGERPRINT = '000000'
 
 export interface NearbyPeer {
   readonly id: string
@@ -113,12 +106,20 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
       history.push(peer.rssi)
       // Fenêtre glissante : au-delà, un appareil qui s'est déplacé resterait
       // ancré sur ses anciennes mesures.
-      if (history.length > 12) history.shift()
+      if (history.length > settingNumber('rssiWindow')) history.shift()
       rssiHistory.set(peer.id, history)
       const lisse = smoothRssi(history)
       peers.set(peer.id, {
         ...peer,
-        ...(lisse === undefined ? {} : { rssi: lisse, distance: estimateDistance(lisse) }),
+        ...(lisse === undefined
+          ? {}
+          : {
+              rssi: lisse,
+              distance: estimateDistance(lisse, {
+                txPower: settingNumber('txPower'),
+                pathLossExponent: settingNumber('pathLoss'),
+              }),
+            }),
       })
     } else {
       peers.set(peer.id, peer)
@@ -154,7 +155,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
       if (stopped) return
       const transport = new WsTransport({ url: relayUrl(), selfName: displayName(playerName()) })
       try {
-        const salles = await transport.listRooms(4000)
+        const salles = await transport.listRooms(settingNumber('roomListTimeoutMs'))
         etat('ws', true, `relay joignable · ${salles.length} salle(s) ouverte(s)`)
         for (const room of salles) {
           notePeer({
@@ -171,7 +172,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
       }
     }
     void pollLan()
-    const timer = globalThis.setInterval(() => void pollLan(), 8000)
+    const timer = globalThis.setInterval(() => void pollLan(), settingNumber('lanPollMs'))
     cleanups.push(() => clearInterval(timer))
   }
 
@@ -209,7 +210,7 @@ export function startNearbyScan(options: ScanOptions): ScanHandle {
         if (status.canAdvertise) {
           await BleMesh.startAdvertising({
             serviceUuid,
-            fingerprintHex: DIAGNOSTIC_FINGERPRINT,
+            fingerprintHex: setting('diagnosticFingerprint'),
             localName: displayName(playerName()),
           })
           cleanups.push(() => void BleMesh.stopAdvertising())

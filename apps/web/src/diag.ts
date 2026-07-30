@@ -14,7 +14,8 @@ import {
   selectTransport,
 } from '@ttd/transport-select'
 import { capabilities, supportPill } from './capabilities.js'
-import { relayUrl, setRelayUrl, relayUrlIsManual } from './app-config.js'
+import { relayUrl } from './app-config.js'
+import { groupedSettings, isCustom, resetSettings, setSetting, setting } from './settings.js'
 import {
   ALL_TRANSPORTS,
   deviceInfo,
@@ -339,7 +340,7 @@ function profileCard(probe: ReturnType<typeof probeProfile>): string {
  * celle du développeur — pourquoi ce moyen a été retenu, et ce qu'il vaut.
  * Tout mélanger noyait le premier sous les mesures du second.
  */
-export type DiagView = 'simple' | 'detail'
+export type DiagView = 'simple' | 'detail' | 'config'
 
 /** Barre d'onglets. La route suit, pour qu'un rechargement retombe ici. */
 function tabs(view: DiagView): string {
@@ -348,6 +349,7 @@ function tabs(view: DiagView): string {
   return `<div class="row" style="margin-bottom:1rem">
     ${onglet('simple', 'Essentiel', '#/diag')}
     ${onglet('detail', 'Détaillé', '#/diag/detail')}
+    ${onglet('config', 'Configuration', '#/diag/config')}
   </div>`
 }
 
@@ -362,10 +364,11 @@ function deviceSummary(): string {
 
 export function renderDiag(root: HTMLElement, view: DiagView = 'simple'): () => void {
   root.innerHTML =
-    view === 'simple' ? simpleMarkup() : detailMarkup()
+    view === 'simple' ? simpleMarkup() : view === 'config' ? configMarkup() : detailMarkup()
 
   const cleanups: Array<() => void> = []
   if (view === 'simple') wireSimple(root, cleanups)
+  else if (view === 'config') wireConfig(root)
   else wireDetail(root, cleanups)
 
   return () => {
@@ -421,20 +424,6 @@ function detailMarkup(): string {
     </section>
 
     <section class="card" style="margin-bottom:1rem">
-      <h2>Adresse du relay</h2>
-      <p class="muted" style="margin:0 0 0.5rem">
-        Vide = déduite de l’adresse du site. À renseigner dans l’application
-        installée, où « localhost » désigne le téléphone lui-même et non le
-        serveur.
-      </p>
-      <div class="row">
-        <input id="relay" placeholder="ws://192.168.1.10:8787" value="${relayUrlIsManual() ? relayUrl() : ''}" />
-        <button id="relay-save">Enregistrer</button>
-      </div>
-      <p class="muted" id="relay-note" style="margin:0.5rem 0 0">Utilisée : ${relayUrl()}</p>
-    </section>
-
-    <section class="card" style="margin-bottom:1rem">
       <h2>Capacités détaillées</h2>
       ${capabilityTable()}
       <p class="muted" style="margin:0.75rem 0 0">
@@ -463,6 +452,87 @@ function detailMarkup(): string {
     </p>
     <div id="probes" class="grid"></div>
   `
+}
+
+/**
+ * Écran de configuration.
+ *
+ * Toutes les valeurs qui étaient écrites en dur, rassemblées et documentées.
+ * Chacune indique ce qu'elle fait et quand il est légitime d'y toucher : un
+ * champ sans explication invite à bricoler au hasard, ce qui est pire que pas
+ * de champ du tout.
+ */
+function configMarkup(): string {
+  const champ = (s: ReturnType<typeof groupedSettings>[number][1][number]) => {
+    const valeur = setting(s.key)
+    const modifie = isCustom(s.key)
+    return `<div style="padding:0.75rem 0;border-bottom:1px solid var(--line)">
+      <label style="display:block">
+        <b>${s.label}</b>${modifie ? ' <span class="pill warn">modifié</span>' : ''}
+        <div class="row" style="margin:0.4rem 0">
+          <input data-setting="${s.key}"
+                 type="${s.kind === 'nombre' ? 'number' : 'text'}"
+                 step="any"
+                 value="${valeur}"
+                 placeholder="${s.placeholder ?? s.defaultValue}" />
+        </div>
+      </label>
+      <p class="muted" style="margin:0;white-space:normal">${s.help}</p>
+      <p class="error" data-error="${s.key}" style="margin:0.25rem 0 0"></p>
+    </div>`
+  }
+
+  const sections = groupedSettings()
+    .map(
+      ([groupe, specs]) => `<section class="card" style="margin-bottom:1rem">
+        <h2>${groupe}</h2>
+        ${specs.map(champ).join('')}
+      </section>`,
+    )
+    .join('')
+
+  return `
+    <h1>Configuration</h1>
+    <p class="lede">
+      Les valeurs qui pilotent la découverte et les mesures. Vider un champ
+      rétablit sa valeur par défaut.
+    </p>
+    ${tabs('config')}
+    ${sections}
+    <section class="card">
+      <div class="row">
+        <button id="reset">Tout réinitialiser</button>
+        <span id="reset-note" class="muted"></span>
+      </div>
+    </section>
+  `
+}
+
+function wireConfig(root: HTMLElement): void {
+  for (const input of root.querySelectorAll<HTMLInputElement>('[data-setting]')) {
+    const key = input.dataset['setting']!
+    const erreurEl = root.querySelector<HTMLElement>(`[data-error="${key}"]`)!
+    // Sur `change` plutôt que sur chaque frappe : une validation à la volée
+    // rejetterait « ws:/ » pendant qu'on tape « ws://… ».
+    input.addEventListener('change', () => {
+      const erreur = setSetting(key, input.value)
+      erreurEl.textContent = erreur ?? ''
+      if (!erreur) {
+        // Relire plutôt que de faire confiance au champ : un champ vidé
+        // rétablit le défaut, et l'affichage doit le montrer.
+        input.value = setting(key)
+      }
+    })
+  }
+
+  root.querySelector<HTMLButtonElement>('#reset')!.addEventListener('click', () => {
+    resetSettings()
+    for (const input of root.querySelectorAll<HTMLInputElement>('[data-setting]')) {
+      input.value = setting(input.dataset['setting']!)
+    }
+    for (const e of root.querySelectorAll<HTMLElement>('[data-error]')) e.textContent = ''
+    root.querySelector<HTMLElement>('#reset-note')!.textContent = 'Valeurs par défaut rétablies.'
+  })
 }
 
 /** Écran simple : interrupteurs et découverte. */
@@ -530,13 +600,6 @@ function wireDetail(root: HTMLElement, _cleanups: Array<() => void>): void {
   const probes = root.querySelector<HTMLDivElement>('#probes')!
   const names: ProfileName[] = ['ble', 'wifi', '4g', 'lossy']
   probes.innerHTML = names.map((name) => profileCard(probeProfile(name))).join('')
-
-  const relayInput = root.querySelector<HTMLInputElement>('#relay')!
-  const relayNote = root.querySelector<HTMLElement>('#relay-note')!
-  root.querySelector<HTMLButtonElement>('#relay-save')!.addEventListener('click', () => {
-    setRelayUrl(relayInput.value)
-    relayNote.textContent = `Utilisée : ${relayUrl()}`
-  })
 
   void selectTransport(browserCandidates(), { game: esquive.meta }).then((selection) => {
     const pick = root.querySelector<HTMLElement>('#pick')
