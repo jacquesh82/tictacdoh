@@ -19,6 +19,6 @@
     "@ttd/capacitor-nfc": "file:../../native/capacitor-nfc"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.2.0"
+    "@capacitor/cli": "^8.4.2"
   }
 }
